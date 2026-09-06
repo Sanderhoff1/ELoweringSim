@@ -7,7 +7,7 @@ from simulation.converter_controls import exciter,chopper
 from simulation.dynamic_model import DynamicLoweringModel
 from simulation.examples import small_hoist
 from simulation.rectifier import bridge
-from simulation.visual_state import energy_budget
+from simulation.visual_state import energy_budget, describe
 from simulation import dynamic_induction as electrical
 
 
@@ -56,6 +56,9 @@ class ConverterTests(unittest.TestCase):
         self.assertEqual(r['line_voltage'],0)
         self.assertEqual(r['inverter_current'],0)
         self.assertEqual(r['source_energy'],0)
+        self.assertEqual(describe(m,r,[])['field_title'],'Waiting for starting energy')
+        history=[(0,)+(0,)*13+(1.0,)]
+        self.assertEqual(describe(m,r,history)['field_title'],'Excitation has collapsed')
 
     def test_regeneration_returns_energy_minus_loss(self):
         r=exciter(small_hoist(),200+0j,-1+0j,600,True)

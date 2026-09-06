@@ -1,5 +1,4 @@
 """Couple the dynamic electrical circuit to the existing lowering mechanics."""
-from dataclasses import replace
 import math
 from .mechanical import MechanicalModel, PHYSICS_DT
 from . import dynamic_induction as electrical
@@ -11,6 +10,7 @@ class DynamicLoweringModel(MechanicalModel):
         self.chopper_active = False
         self.chopper_enabled = True
         self.dc_exciter = False
+        self.boost_enabled = False
         super().__init__(parameters)
         self.motor_connected = self.ideal_excitation = self.capacitors_enabled = True
         self.reset()
@@ -32,7 +32,7 @@ class DynamicLoweringModel(MechanicalModel):
         return electrical.readings(self.parameters, self.electrical,
             self.state.omega if omega is None else omega, self.inverter_enabled,
             self.capacitors_enabled, self.motor_connected, self.rectifier_enabled,
-            self.chopper_active,self.dc_exciter,self.chopper_enabled)
+            self.chopper_active,self.dc_exciter,self.chopper_enabled,self.boost_enabled)
 
     def step(self, dt=PHYSICS_DT):
         if not math.isfinite(dt) or dt <= 0:
@@ -58,6 +58,8 @@ class DynamicLoweringModel(MechanicalModel):
             rate=max(rate,1/p.chopper_response)
         if self.dc_exciter and ceq:
             rate=max(rate,1/(ceq*p.inverter_output_resistance))
+        if self.boost_enabled:
+            rate=max(rate,1/p.boost_response,p.boost_voltage_gain/(p.dc_capacitance*1e-6))
         # RK4 resolves the passive RC charging pole with at least two steps
         # per fastest time constant; retain the earlier bound in AC mode.
         rate_fraction = 0.5 if self.rectifier_enabled else 0.1
@@ -76,16 +78,20 @@ class DynamicLoweringModel(MechanicalModel):
             return target if p.brake_response == 0 else target+(initial_brake-target)*math.exp(-t/p.brake_response)
         s.brake_fraction = fraction(h/2)
         # Midpoint speed prediction respects the mechanical brake's stop rule.
-        before = replace(s)
-        old_torque = self.electrical_readings()['motor_torque']
+        before = (s.time, s.position, s.angle, s.omega)
+        def restore():
+            s.time, s.position, s.angle, s.omega = before
+        e = self.electrical
+        current = electrical.currents(p,e.stator_flux,e.rotor_flux,self.motor_connected)[0]
+        old_torque = 1.5*p.pole_pairs*(e.stator_flux.conjugate()*current).imag
         if not s.grounded:
             self._motion(h/2, old_torque)
         mid_speed = self.state.omega
-        self.state = replace(before)
+        restore()
         torque = electrical.advance(p, self.electrical, h, mid_speed,
             self.inverter_enabled, self.capacitors_enabled, self.motor_connected, self.rectifier_enabled,
-            self.chopper_active,self.dc_exciter,self.chopper_enabled)
-        if before.grounded:
+            self.chopper_active,self.dc_exciter,self.chopper_enabled,self.boost_enabled)
+        if s.grounded:
             self.state.time += h
         else:
             self._motion(h, torque)
@@ -93,29 +99,29 @@ class DynamicLoweringModel(MechanicalModel):
                 low, high = 0.0, h
                 for _ in range(32):
                     mid = (low+high)/2
-                    self.state = replace(before)
+                    restore()
                     self._motion(mid, torque)
                     if self.state.position < p.crane_height:
                         low = mid
                     else:
                         high = mid
-                self.state = replace(before)
+                restore()
                 self._motion(high, torque)
                 s = self.state
                 s.impact_speed = p.radius*s.omega
                 s.impact_energy = 0.5*(p.inertia+p.mass*p.radius**2)*s.omega**2
-                s.impact_time = before.time+high
+                s.impact_time = before[0]+high
                 s.position = p.crane_height
                 s.angle = p.crane_height/p.radius
                 s.omega = 0.0
                 s.grounded = True
-                s.time = before.time+h
+                s.time = before[0]+h
             # Mechanical work balance determines dissipated brake/friction
             # work without pretending these are constant over a substep.
             j = p.inertia+p.mass*p.radius**2
-            movement = self.state.angle-before.angle
+            movement = self.state.angle-before[2]
             lost = (p.mass*p.gravity*p.radius+torque)*movement
-            lost -= 0.5*j*(self.state.omega**2-before.omega**2)
+            lost -= 0.5*j*(self.state.omega**2-before[3]**2)
             self.mechanical_dissipation += lost
         self.state.brake_fraction = fraction(h)
 
@@ -125,5 +131,6 @@ class DynamicLoweringModel(MechanicalModel):
             +self.electrical.load_energy+self.electrical.copper_energy
             +self.electrical.dc_brake_energy+self.electrical.rectifier_loss_energy
             +self.electrical.inverter_loss_energy
+            +self.electrical.boost_loss_energy-self.electrical.battery_energy
             +self.mechanical_dissipation-self.electrical.source_energy)
         return r

@@ -1,4 +1,48 @@
-# ELoweringSim — Phases 6–7, chopper and DC-fed excitation
+# ELoweringSim — external flux exciter and passive generation
+
+The default **External 400 V · reviewed** model has a small externally powered
+flux exciter, an induction generator, a passive capacitor-input rectifier, and
+a DC-link chopper/brake resistor. Generated load power cannot regenerate through
+the exciter's external supply. This replaces the former DC-fed VFD topology as
+the default; modes 5–7 remain explicitly labeled legacy comparisons.
+
+Run ` .\.python\python.exe -m simulation `, choose **External startup**, and press
+**Start / restart this example**. It starts at rest, with zero magnetic seed and
+empty AC/DC capacitors. The sequencer establishes flux with the brake held,
+qualifies it, releases the brake, and ramps field frequency. The estimated
+0.9 kW / four-pole / 300 kg / 200 m example approaches **16.2 m/min**.
+
+The Energy flow page includes the separate 400 V source, exciter active/reactive
+power, passive bridge/DC/brake power, startup status, and separate energy bars
+for copper, core, gearbox, bearings, mechanical brake, and converter losses.
+Exciter and chopper switches act live; capacitance changes reset the run.
+The brake checkbox overrides automatic startup; Reset restores the sequencer.
+
+See [the implementation and validation report](docs/reviewed-topology.md) for
+equations, assumptions, changed files, test results, and runtime measurements.
+[Machine-readable results](docs/review-results.json) are reproducible with
+` .\.python\python.exe -m simulation.review_report `.
+
+Run all tests with ` .\.python\python.exe -m unittest discover -s simulation/tests -v `.
+The full dynamic model remains available. A separate conventional equivalent-
+circuit calculator supports fast prescribed operating-point sweeps; it does
+not replace transient startup or self-excitation dynamics.
+
+## Archived development notes
+
+Everything below describes earlier phases and their former defaults. These
+descriptions apply to legacy comparisons, not the reviewed external topology.
+
+### Phases 6–7, chopper and DC-fed excitation
+
+**New: 24 V boost support.** The default **24 V startup** example begins with
+an empty DC bus and the brake held. The power-limited boost charges/supports
+the shared bus below the chopper threshold, then stands by when generation
+takes over. The visual includes battery watts/Wh, support status and boost heat.
+See [boost assumptions, equations and startup example](docs/boost-support.md).
+
+The 600 V precharge described below now applies to the **Exciter handover**
+comparison, not the default startup. Startup actions are still manual.
 
 **Current default: Phase 7.** The brake chopper has voltage-band control and
 finite duty response. The exciter now has current/voltage limits and losses,

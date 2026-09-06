@@ -1,0 +1,344 @@
+{
+  "legacy_same_physics": {
+    "before_wall_seconds": 3.4853258999064565,
+    "after_wall_seconds": 2.655532700009644,
+    "simulation_seconds": 1,
+    "before": {
+      "omega": 162.6989516219423,
+      "position": 0.272515344981704,
+      "dc_voltage": 589.3650835642283,
+      "motor_torque": -4.74230105502952,
+      "electrical_export": 672.162446544828,
+      "rectifier_power": 0,
+      "dc_brake_power": 653.8459657170382,
+      "energy_residual": 6.690376324058889e-07
+    },
+    "after": {
+      "omega": 162.6989516219423,
+      "position": 0.272515344981704,
+      "dc_voltage": 589.3650835642283,
+      "motor_torque": -4.74230105502952,
+      "electrical_export": 672.162446544828,
+      "rectifier_power": 0.0,
+      "dc_brake_power": 653.8459657170382,
+      "energy_residual": 6.690376324058889e-07
+    },
+    "max_absolute_difference": 0.0
+  },
+  "reviewed_startup": {
+    "wall_seconds": 5.551363300066441,
+    "simulation_seconds": 3,
+    "release_time": 0.32000000000005896,
+    "readings": {
+      "position": 0.6155586173024205,
+      "velocity": 0.27047010642989855,
+      "acceleration": 2.2455931486950308e-07,
+      "clearance": 199.3844413826976,
+      "brake_capacity": 1.5151441121477717e-05,
+      "angle": 369.335170381456,
+      "omega": 162.2820638579391,
+      "rpm": 1549.6795582887373,
+      "potential_energy": -1811.5890107210234,
+      "kinetic_energy": 116.31498477079901,
+      "gravity_power": 795.9935232231915,
+      "brake_power": 0.0024588071356154515,
+      "friction_power": 26.33546824999223,
+      "gear_power": 79.59935232231912,
+      "drivetrain_power": 16.22820638579391,
+      "external_exciter": true,
+      "dc_exciter": false,
+      "boost_enabled": false,
+      "boost_status": "NOT IN THIS TOPOLOGY",
+      "startup_status": "GENERATING",
+      "external_supply_power": 3.856901430112669,
+      "core_loss": 37.92067674595505,
+      "core_energy": 78.0722502337875,
+      "gear_energy": 181.1589010721024,
+      "drivetrain_energy": 36.93351703814567,
+      "brake_energy": 52.332414300741114,
+      "friction_energy": 58.1593144220428,
+      "line_voltage": 389.4646415065431,
+      "bus_frequency": 49.99999999175156,
+      "slip": -0.03311970569625745,
+      "slip_valid": true,
+      "synchronous_rpm": 1499.9999997525467,
+      "motor_torque": -4.152201594536571,
+      "motor_mode": "GENERATING",
+      "motor_shaft_power": -673.8278443156204,
+      "electrical_input": -550.4214402705117,
+      "electrical_export": 550.4214402705117,
+      "stator_loss": 63.88408030643016,
+      "rotor_loss": 21.601537493786928,
+      "machine_line_current": 1.7167417100728086,
+      "machine_reactive_demand": 1018.8989230300913,
+      "inverter_current": 0.23901205410504148,
+      "inverter_real_power": -4.999999999999993,
+      "inverter_reactive_supply": 161.15342288502376,
+      "inverter_status": "SMALL EXCITER LIMIT",
+      "inverter_loss": 8.85690143011267,
+      "inverter_loss_energy": 60.79313353962667,
+      "inverter_dc_power": 0,
+      "capacitor_reactive_supply": 857.7455001450676,
+      "capacitor_line_current": 1.2715392942793502,
+      "capacitor_energy": 1.3651443628543816,
+      "magnetic_energy": 1.4509897157461307,
+      "flux_magnitude": 0.989409220543211,
+      "rectifier_enabled": true,
+      "rectifier_current": 0.9995930266088286,
+      "rectifier_power": 545.4184322804814,
+      "rectifier_energy": 1135.8710476315819,
+      "dc_input_power": 524.9129951362186,
+      "dc_input_energy": 1091.984717032483,
+      "rectifier_loss": 20.505437144262828,
+      "rectifier_loss_energy": 43.88633059909989,
+      "dc_voltage": 525.1267077332594,
+      "dc_energy": 64.80314390607144,
+      "dc_brake_power": 524.9158646044873,
+      "dc_brake_energy": 1027.181573126404,
+      "chopper_active": true,
+      "chopper_enabled": true,
+      "chopper_duty": 0.6281674444542514,
+      "chopper_command": 0.6281676933314856,
+      "load_power": 0,
+      "load_energy": 0,
+      "source_energy": 192.64365343674567,
+      "copper_energy": 281.78099914881864,
+      "beyond_peak": false,
+      "effective_peak_torque": 0,
+      "compensation_fraction": 0,
+      "matching_capacitance": 0,
+      "energy_residual": 3.207847080943793e-05
+    }
+  },
+  "convergence": [
+    {
+      "max_electrical_step": 0.0001,
+      "velocity": 0.27032448276821464,
+      "dc_voltage": 524.1586693175267,
+      "flux_magnitude": 0.9860562757702105,
+      "energy_residual": 5.380243777608484e-06
+    },
+    {
+      "max_electrical_step": 5e-05,
+      "velocity": 0.27032448276821464,
+      "dc_voltage": 524.1586693175267,
+      "flux_magnitude": 0.9860562757702105,
+      "energy_residual": 5.380243777608484e-06
+    },
+    {
+      "max_electrical_step": 2.5e-05,
+      "velocity": 0.2703241967597514,
+      "dc_voltage": 524.1605049549474,
+      "flux_magnitude": 0.986060103140394,
+      "energy_residual": 4.923987262372975e-07
+    }
+  ],
+  "equivalent_circuit": [
+    {
+      "slip": 1,
+      "line_voltage": 100,
+      "reference": {
+        "torque": 0.9945555919987471,
+        "current": 2.775913334323933,
+        "real_power": 319.4303873480033,
+        "reactive_power": 359.35368765191083,
+        "flux": 0.12888907452409615,
+        "core_loss": 2.5000000000000004,
+        "copper_loss": 316.9303873480033
+      },
+      "dynamic": {
+        "torque": 0.9945378699496062,
+        "current": 2.775912322518924,
+        "real_power": 319.4303827678222,
+        "reactive_power": 359.35345724533494
+      },
+      "absolute_errors": {
+        "torque": 1.7722049140855844e-05,
+        "current": 1.0118050091101338e-06,
+        "real_power": 4.580181098390312e-06,
+        "reactive_power": 0.00023040657589490365
+      }
+    },
+    {
+      "slip": 0.2,
+      "line_voltage": 200,
+      "reference": {
+        "torque": 4.089946628650646,
+        "current": 2.5782572265383012,
+        "real_power": 789.2978883480791,
+        "reactive_power": 417.9689971671346,
+        "flux": 0.4083663952523876,
+        "core_loss": 10.000000000000002,
+        "copper_loss": 265.34003706235023
+      },
+      "dynamic": {
+        "torque": 4.089946683713377,
+        "current": 2.578257229690825,
+        "real_power": 789.2979004490575,
+        "reactive_power": 417.96897664906976
+      },
+      "absolute_errors": {
+        "torque": 5.5062731263433307e-08,
+        "current": 3.1525235755225367e-09,
+        "real_power": 1.2100978324269818e-05,
+        "reactive_power": 2.051806484359986e-05
+      }
+    },
+    {
+      "slip": 0.03,
+      "line_voltage": 400,
+      "reference": {
+        "torque": 3.566514822285485,
+        "current": 1.6617123599917207,
+        "real_power": 655.9879277976024,
+        "reactive_power": 946.0962228607881,
+        "flux": 0.9633687026477398,
+        "core_loss": 40.00000000000001,
+        "copper_loss": 72.5678947139595
+      },
+      "dynamic": {
+        "torque": 3.5665152970192735,
+        "current": 1.6617122362120604,
+        "real_power": 655.9879984663781,
+        "reactive_power": 946.0960695072043
+      },
+      "absolute_errors": {
+        "torque": 4.747337882804459e-07,
+        "current": 1.2377966029930576e-07,
+        "real_power": 7.066877572015073e-05,
+        "reactive_power": 0.00015335358375523356
+      }
+    },
+    {
+      "slip": 0,
+      "line_voltage": 400,
+      "reference": {
+        "torque": 0.0,
+        "current": 1.4045893867322528,
+        "real_power": 81.21604210437472,
+        "reactive_power": 969.7330561855288,
+        "flux": 0.9891268513004922,
+        "core_loss": 40.00000000000001,
+        "copper_loss": 41.21604210437328
+      },
+      "dynamic": {
+        "torque": 5.116268085858522e-07,
+        "current": 1.4045891462819455,
+        "real_power": 81.21611104889696,
+        "reactive_power": 969.7328832392735
+      },
+      "absolute_errors": {
+        "torque": 5.116268085858522e-07,
+        "current": 2.40450307220641e-07,
+        "real_power": 6.894452224059933e-05,
+        "reactive_power": 0.00017294625524755247
+      }
+    },
+    {
+      "slip": -0.02,
+      "line_voltage": 200,
+      "reference": {
+        "torque": -0.6597172497099266,
+        "current": 0.6647064236060417,
+        "real_power": -84.03798309468146,
+        "reactive_power": 214.37764096881511,
+        "flux": 0.5073073846249542,
+        "core_loss": 10.000000000000002,
+        "copper_loss": 11.662723027212381
+      },
+      "dynamic": {
+        "torque": -0.6597171142952557,
+        "current": 0.6647062792643897,
+        "real_power": -84.03796565707978,
+        "reactive_power": 214.37759409845177
+      },
+      "absolute_errors": {
+        "torque": 1.354146709209303e-07,
+        "current": 1.4434165196419713e-07,
+        "real_power": 1.7437601684378023e-05,
+        "reactive_power": 4.687036334871664e-05
+      }
+    },
+    {
+      "slip": -0.04,
+      "line_voltage": 400,
+      "reference": {
+        "torque": -5.33329607692403,
+        "current": 1.9246454346794692,
+        "real_power": -717.3818910815219,
+        "reactive_power": 1124.0142552387454,
+        "flux": 1.0206393564847114,
+        "core_loss": 40.00000000000001,
+        "copper_loss": 113.88038520203591
+      },
+      "dynamic": {
+        "torque": -5.333295539498483,
+        "current": 1.9246451426270383,
+        "real_power": -717.3818303301367,
+        "reactive_power": 1124.0140539736826
+      },
+      "absolute_errors": {
+        "torque": 5.374255467316402e-07,
+        "current": 2.9205243090579813e-07,
+        "real_power": 6.075138514916034e-05,
+        "reactive_power": 0.00020126506274209532
+      }
+    },
+    {
+      "slip": -0.1,
+      "line_voltage": 350,
+      "reference": {
+        "torque": -10.948543408924143,
+        "current": 3.1544252375910027,
+        "real_power": -1474.9937350559842,
+        "reactive_power": 1217.0312072952815,
+        "flux": 0.9292909382906335,
+        "core_loss": 30.625000000000004,
+        "copper_loss": 386.1537596981933
+      },
+      "dynamic": {
+        "torque": -10.948543024948256,
+        "current": 3.1544250075703824,
+        "real_power": -1474.9937088122315,
+        "reactive_power": 1217.0310200015342
+      },
+      "absolute_errors": {
+        "torque": 3.8397588753014134e-07,
+        "current": 2.3002062032873027e-07,
+        "real_power": 2.624375269988377e-05,
+        "reactive_power": 0.00018729374733084114
+      }
+    },
+    {
+      "slip": -0.3,
+      "line_voltage": 150,
+      "reference": {
+        "torque": -5.684567131697255,
+        "current": 3.638860447110699,
+        "real_power": -607.1026017084457,
+        "reactive_power": 724.7168704833888,
+        "flux": 0.40368050411683964,
+        "core_loss": 5.625000000000001,
+        "copper_loss": 548.0810303771311
+      },
+      "dynamic": {
+        "torque": -5.684567192725497,
+        "current": 3.6388603839042113,
+        "real_power": -607.1026231381065,
+        "reactive_power": 724.7168311094249
+      },
+      "absolute_errors": {
+        "torque": 6.102824201548174e-08,
+        "current": 6.320648759938763e-08,
+        "real_power": 2.1429660819194396e-05,
+        "reactive_power": 3.937396388664638e-05
+      }
+    }
+  ],
+  "prescribed_operating_point_runtime": {
+    "dynamic_seconds": 1.7815379000967368,
+    "quasi_steady_seconds": 0.0006610999116674066,
+    "cases": 8,
+    "limitation": "T-circuit sweeps prescribe voltage and speed; not a coupled startup or autonomous self-excitation solver."
+  }
+}

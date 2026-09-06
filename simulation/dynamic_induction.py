@@ -8,6 +8,7 @@ import cmath
 import math
 from .rectifier import bridge, K
 from .converter_controls import chopper as chopper_control, exciter
+from .boost import support
 
 ELECTRICAL_DT = 0.0001
 
@@ -27,6 +28,9 @@ class ElectricalState:
     chopper_duty: float = 0.0
     inverter_loss_energy: float = 0.0
     inverter_ac_energy: float = 0.0
+    boost_current: float = 0.0
+    battery_energy: float = 0.0
+    boost_loss_energy: float = 0.0
 
 
 def initial_state(p):
@@ -58,10 +62,12 @@ def currents(p, stator_flux, rotor_flux, connected=True):
 
 
 def circuit(p, y, time, omega, inverter, capacitors, connected=True, rectifier=False,
-            chopper=False, dc_exciter=False, chopper_enabled=True):
+            chopper=False, dc_exciter=False, chopper_enabled=True, boost_enabled=False):
     ps, pr, vc = y[:3]
     dc_voltage = y[3] if len(y)>3 else 0.0
     duty = float(y[4].real) if len(y)>4 else 0.0
+    boost_current=y[5] if len(y)>5 else 0.0
+    auxiliary=support(p,dc_voltage,boost_current,boost_enabled and rectifier)
     command, dduty = chopper_control(p,float(dc_voltage.real),duty,chopper_enabled) if chopper else (1.0,0.0)
     is_, ir, pm = currents(p, ps, pr, connected)
     ceq = 3*p.capacitor_capacitance*1e-6 if capacitors else 0.0
@@ -102,6 +108,8 @@ def circuit(p, y, time, omega, inverter, capacitors, connected=True, rectifier=F
         source_current = is_+voltage*conductance+dc['ac_current'] if inverter else 0j
         dv = 0j
     torque = 1.5*p.pole_pairs*(ps.conjugate()*is_).imag if connected else 0.0
+    if rectifier:
+        dc['derivative']+=auxiliary['current']/(p.dc_capacitance*1e-6)
     dps = voltage-p.stator_resistance*is_ if connected else 0j
     dpr = -p.rotor_resistance*ir+1j*p.pole_pairs*omega*pr
     source_power = 1.5*(voltage*source_current.conjugate()).real
@@ -110,11 +118,13 @@ def circuit(p, y, time, omega, inverter, capacitors, connected=True, rectifier=F
     derivatives = (dps, dpr, dv, dc['derivative']) if len(y)>3 else (dps, dpr, dv)
     if len(y)>4:
         derivatives += (dduty,)
+    if len(y)>5:
+        derivatives += (auxiliary['derivative'],)
     return derivatives, dict(voltage=voltage, source_current=source_current,
         stator_current=is_, rotor_current=ir, magnetizing_flux=pm, torque=torque,
         source_power=source_power, load_power=load_power, copper_power=copper,
         rotor_loss=1.5*p.rotor_resistance*abs(ir)**2, ceq=ceq, dc=dc, inv=inv,
-        external_power=0.0 if dc_exciter else source_power, duty_command=command)
+        external_power=0.0 if dc_exciter else source_power, duty_command=command, boost=auxiliary)
 
 
 def stored_energy(p, y, capacitors=True, connected=True):
@@ -127,23 +137,41 @@ def stored_energy(p, y, capacitors=True, connected=True):
 
 
 def advance(p, state, dt, omega, inverter, capacitors, connected=True, rectifier=False,
-            chopper=False, dc_exciter=False, chopper_enabled=True):
+            chopper=False, dc_exciter=False, chopper_enabled=True, boost_enabled=False):
     """RK4 step with an externally held shaft speed; returns mean torque."""
-    y = (state.stator_flux, state.rotor_flux, state.voltage, state.dc_voltage, state.chopper_duty)
-    switches=(inverter,capacitors,connected,rectifier,chopper,dc_exciter,chopper_enabled)
+    y = (state.stator_flux, state.rotor_flux, state.voltage, state.dc_voltage, state.chopper_duty,state.boost_current)
+    if rectifier and state.dc_voltage<0:
+        raise ValueError('DC voltage cannot start negative')
+    switches=(inverter,capacitors,connected,rectifier,chopper,dc_exciter,chopper_enabled,boost_enabled)
+    def subdivide():
+        if dt<1e-12:
+            raise ValueError('Legacy voltage integration cannot resolve DC depletion')
+        first=advance(p,state,dt/2,omega,*switches)
+        second=advance(p,state,dt/2,omega,*switches)
+        return (first+second)/2
     k1, r1 = circuit(p, y, state.time, omega, *switches)
-    k2, r2 = circuit(p, tuple(v+dt*k/2 for v,k in zip(y,k1)), state.time+dt/2, omega, *switches)
-    k3, r3 = circuit(p, tuple(v+dt*k/2 for v,k in zip(y,k2)), state.time+dt/2, omega, *switches)
-    k4, r4 = circuit(p, tuple(v+dt*k for v,k in zip(y,k3)), state.time+dt, omega, *switches)
+    stage=tuple(v+dt*k/2 for v,k in zip(y,k1))
+    if rectifier and stage[3].real<0: return subdivide()
+    k2, r2 = circuit(p, stage, state.time+dt/2, omega, *switches)
+    stage=tuple(v+dt*k/2 for v,k in zip(y,k2))
+    if rectifier and stage[3].real<0: return subdivide()
+    k3, r3 = circuit(p, stage, state.time+dt/2, omega, *switches)
+    stage=tuple(v+dt*k for v,k in zip(y,k3))
+    if rectifier and stage[3].real<0: return subdivide()
+    k4, r4 = circuit(p, stage, state.time+dt, omega, *switches)
     values = tuple(v+dt*(a+2*b+2*c+d)/6 for v,a,b,c,d in zip(y,k1,k2,k3,k4))
+    if rectifier and values[3].real<0: return subdivide()
     if not all(math.isfinite(v.real) and math.isfinite(v.imag) for v in values):
         raise ValueError("Dynamic electrical integration diverged; reduce parameter extremes or timestep.")
     state.stator_flux, state.rotor_flux, state.voltage = values[:3]
     state.dc_voltage = float(values[3].real)
     state.chopper_duty = float(values[4].real)
+    state.boost_current=float(values[5].real)
     def mean(key):
         return (r1[key]+2*r2[key]+2*r3[key]+r4[key])/6
     state.source_energy += dt*mean('external_power')
+    for attribute,key in (('battery_energy','battery_power'),('boost_loss_energy','loss')):
+        setattr(state,attribute,getattr(state,attribute)+dt*(r1['boost'][key]+2*r2['boost'][key]+2*r3['boost'][key]+r4['boost'][key])/6)
     state.inverter_ac_energy += dt*mean('source_power')
     state.inverter_loss_energy += dt*(r1['inv']['loss']+2*r2['inv']['loss']+2*r3['inv']['loss']+r4['inv']['loss'])/6
     state.load_energy += dt*mean('load_power')
@@ -155,9 +183,9 @@ def advance(p, state, dt, omega, inverter, capacitors, connected=True, rectifier
 
 
 def readings(p, state, omega, inverter, capacitors, connected=True, rectifier=False,
-             chopper=False, dc_exciter=False, chopper_enabled=True):
-    y = (state.stator_flux, state.rotor_flux, state.voltage, state.dc_voltage,state.chopper_duty)
-    derivatives, r = circuit(p, y, state.time, omega, inverter, capacitors, connected, rectifier,chopper,dc_exciter,chopper_enabled)
+             chopper=False, dc_exciter=False, chopper_enabled=True,boost_enabled=False):
+    y = (state.stator_flux, state.rotor_flux, state.voltage, state.dc_voltage,state.chopper_duty,state.boost_current)
+    derivatives, r = circuit(p, y, state.time, omega, inverter, capacitors, connected, rectifier,chopper,dc_exciter,chopper_enabled,boost_enabled)
     voltage, is_ = r['voltage'], r['stator_current']
     magnitude = abs(voltage)
     # Instantaneous vector angular velocity, undefined near a dead bus.
@@ -171,7 +199,11 @@ def readings(p, state, omega, inverter, capacitors, connected=True, rectifier=Fa
     q_cap = -1.5*(voltage*cap_current.conjugate()).imag
     magnetic, capacitor = stored_energy(p, y, capacitors, connected)
     mode = 'DISCONNECTED' if not connected else ('GENERATING' if terminal_power < -0.01 else 'MOTORING' if terminal_power>0.01 else 'UNEXCITED / TRANSIENT')
-    return dict(chopper_active=chopper, chopper_enabled=chopper_enabled,
+    return dict(boost_enabled=boost_enabled and rectifier,boost_status=r['boost']['status'],
+        boost_power=r['boost']['output_power'],battery_power=r['boost']['battery_power'],
+        battery_current=r['boost']['battery_current'],boost_loss=r['boost']['loss'],
+        battery_energy=state.battery_energy,boost_loss_energy=state.boost_loss_energy,
+        chopper_active=chopper, chopper_enabled=chopper_enabled,
         chopper_duty=state.chopper_duty if chopper else 1.0, chopper_command=r['duty_command'],
         dc_exciter=dc_exciter,inverter_status=r['inv']['status'],
         inverter_loss=r['inv']['loss'],inverter_loss_energy=state.inverter_loss_energy,

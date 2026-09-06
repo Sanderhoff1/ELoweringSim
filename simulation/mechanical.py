@@ -42,12 +42,24 @@ class MechanicalModel:
         fraction = (0.0 if self.brake_released else 1.0) if self.parameters.brake_response == 0 else self.state.brake_fraction
         return self.parameters.brake_torque * fraction
 
+    def effective_radius(self, position=None):
+        """Single radius/ratio today; future radius laws belong at this interface.
+
+        A variable-radius implementation must also account for variable reflected
+        inertia. This rigid model does not predict peak rope/structural forces.
+        """
+        return self.parameters.radius
+
+    def gear_loss_torque(self):
+        p=self.parameters
+        return (1-p.gearbox_efficiency)*p.mass*p.gravity*self.effective_radius()
+
     def _drive(self, motor_torque=None):
         p, s = self.parameters, self.state
         if motor_torque is None:
             motor_torque = self.electrical_readings()['motor_torque']
         gravity_torque = p.mass * p.gravity * p.radius + motor_torque
-        brake = self.brake_capacity()
+        brake = self.brake_capacity()+self.gear_loss_torque()+p.drivetrain_loss_torque
         if s.omega == 0.0:
             return max(0.0, gravity_torque - brake)
         return gravity_torque - math.copysign(brake, s.omega)
@@ -143,6 +155,8 @@ class MechanicalModel:
                     kinetic_energy=0.5*(p.inertia+p.mass*p.radius**2)*s.omega**2,
                     gravity_power=p.mass*p.gravity*velocity,
                     brake_power=brake*abs(s.omega), friction_power=p.damping*s.omega**2,
+                    gear_power=self.gear_loss_torque()*abs(s.omega),
+                    drivetrain_power=p.drivetrain_loss_torque*abs(s.omega),
                     **self.electrical_readings())
 
 

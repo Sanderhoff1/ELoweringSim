@@ -96,6 +96,15 @@ is a stated initial condition, not an unlimited supply. In Phase 7, the external
 source-energy counter stays zero even while AC power flows through the exciter:
 that is internal energy exchange with DC storage.
 
+For a baseline, keep the exciter ON in the handover example. Switching it OFF
+is a separate capacitor-only experiment. `DC TOO LOW` means commanded ON does
+not imply current is available; raising the current limit cannot create a DC
+supply. Feedback distinguishes an empty starting condition from field collapse
+using the retained flux history. The residual-flux parameter is only an initial
+condition, not persistent magnetic remanence/hysteresis: a decayed seed is not
+re-created automatically at a higher speed. These startup results therefore
+cannot establish whether a particular real motor will self-excite reliably.
+
 Select **7 · DC-fed exciter**, start **Exciter handover**, and watch the outer
 DC-to-exciter path, duty bar and current-limit indicator. After 0.5 simulated
 seconds with the default moving load, one check gave approximately 589.37 V DC,

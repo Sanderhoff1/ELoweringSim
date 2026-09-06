@@ -16,6 +16,7 @@ def energy_budget(model, r):
     inputs = [('Initial height energy', potential),
               ('Initial motion / field / charge', model.initial_energy),
               ('Net external input', max(0, source))]
+    inputs += [('24 V battery input',r.get('battery_energy',0))]
     outputs = [('Height remaining', potential+r['potential_energy']),
                ('Motion', r['kinetic_energy']),
                ('Field + capacitors', r['magnetic_energy']+r['capacitor_energy']),
@@ -29,6 +30,14 @@ def energy_budget(model, r):
                     ('Bridge / source heat', r['rectifier_loss_energy'])]
     if r.get('dc_exciter'):
         outputs += [('Exciter heat',r['inverter_loss_energy'])]
+    if r.get('external_exciter'):
+        outputs=[item for item in outputs if item[0] not in ('AC load heat','Brake / friction / impact','Net returned externally')]
+        outputs += [('Core heat',r['core_energy']),('Gearbox heat',r['gear_energy']),
+                    ('Bearings / seals',r['drivetrain_energy']),('Mechanical brake',r['brake_energy']),
+                    ('Viscous / landing',r['friction_energy']+model.state.impact_energy),
+                    ('Exciter heat',r['inverter_loss_energy'])]
+    if r.get('boost_enabled') or r.get('boost_loss_energy',0):
+        outputs += [('Boost heat',r['boost_loss_energy'])]
     return dict(inputs=inputs, outputs=outputs, total=sum(x[1] for x in inputs),
                 residual=r['energy_residual'], released=-r['potential_energy'])
 
@@ -38,6 +47,8 @@ def describe(model, readings, history):
     dynamic = 'flux_magnitude' in r
     voltage_reference = max(p.volts_per_hz*p.supply_frequency, 1.0)
     flux_reference = max(math.sqrt(2/3)*p.volts_per_hz/(2*math.pi), 0.001)
+    if r.get('external_exciter'):
+        flux_reference=p.exciter_flux_target
     field = r.get('flux_magnitude', flux_reference*r['line_voltage']/voltage_reference)
     field_ratio = field/flux_reference
     field_rate = 0.0
@@ -75,17 +86,28 @@ def describe(model, readings, history):
         reason = 'Exciter connected: it can establish the field and exchange energy.'
         if r.get('dc_exciter'):
             reason = 'DC-fed exciter: '+r['inverter_status'].lower()+'. Its energy comes from the DC bus.'
+            if r['inverter_status']=='DC TOO LOW':
+                reason = f'Exciter commanded ON, but DC is below {p.inverter_min_dc_voltage:g} V. Increasing its current limit cannot supply starting energy.'
+                if field_ratio<0.02:
+                    had_field=any(len(row)>14 and row[14]>0.02*flux_reference for row in history)
+                    field_title='Excitation has collapsed' if had_field else 'Waiting for starting energy'
+                if r.get('boost_enabled'):
+                    reason='24 V boost is charging/supporting the DC bus; the exciter is waiting for enough voltage.'
     elif field_ratio >= 0.02:
         reason = 'Exciter OFF. The field still exists; watch whether it grows or fades.'
     elif r['line_voltage'] > 0.1:
         reason = 'Exciter OFF. Capacitor voltage is present, but little field has formed.'
     else:
         reason = 'Exciter OFF. A seed and suitable conditions are needed for voltage to build.'
+    if not model.inverter_enabled and r.get('boost_enabled') and field_ratio<0.02:
+        reason='24 V boost: '+r['boost_status'].lower()+'. Exciter OFF; enable it after charging the DC bus.'
+    if r.get('external_exciter'):
+        reason=r['startup_status']+'. '+('Separate 400 V supply powers the small flux exciter.' if model.inverter_enabled else 'External excitation OFF.')
     source_power = r['inverter_real_power'] if dynamic else -r['electrical_export']
     load_power = r.get('load_power', 0.0)
     cap_absorption = source_power+r['electrical_export']-load_power-r.get('rectifier_power',0) if dynamic else 0.0
     copper_power = r['rotor_loss']+r.get('stator_loss', 0)
-    field_storage = r['electrical_input']-r['motor_shaft_power']-copper_power if dynamic else 0.0
+    field_storage = r['electrical_input']-r['motor_shaft_power']-copper_power-r.get('core_loss',0) if dynamic else 0.0
     cap_reference_energy = 0.5*(3*p.capacitor_capacitance*1e-6)*voltage_reference**2
     cap_ratio = (r.get('capacitor_energy',0)/cap_reference_energy
                  if dynamic and cap_reference_energy else (r['line_voltage']/voltage_reference)**2)
