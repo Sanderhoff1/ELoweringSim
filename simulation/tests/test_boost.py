@@ -30,7 +30,7 @@ class BoostTests(unittest.TestCase):
         self.assertEqual(support(p,300,1,False)['battery_power'],0)
 
     def test_empty_bus_charges_without_brake_heat(self):
-        p=Parameters(initial_flux=0,boost_target_voltage=100,chopper_threshold=200,
+        p=Parameters(initial_flux=0,dc_initial_voltage=0,precharge_voltage=0,boost_target_voltage=100,chopper_threshold=200,
                      dc_capacitance=1000,boost_input_power_limit=20)
         m=DynamicLoweringModel(p)
         m.rectifier_enabled=m.chopper_active=m.boost_enabled=True
@@ -59,7 +59,7 @@ class BoostTests(unittest.TestCase):
         self.assertEqual(m.electrical.boost_current,0)
 
     def test_charging_timestep_convergence(self):
-        p=Parameters(initial_flux=0,boost_target_voltage=100,chopper_threshold=200,
+        p=Parameters(initial_flux=0,dc_initial_voltage=0,precharge_voltage=0,boost_target_voltage=100,chopper_threshold=200,
                      dc_capacitance=1000,boost_input_power_limit=20)
         results=[]
         for dt in (0.002,0.00005):

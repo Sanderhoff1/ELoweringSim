@@ -31,12 +31,12 @@ REVIEWED_FIELDS = {'core_loss_resistance','external_supply_voltage','exciter_act
 class Application:
     def __init__(self, root):
         self.root = root
-        root.title("Emergency lowering — external flux exciter / passive rectifier")
+        root.title("Emergency lowering — battery flux exciter / passive rectifier")
         root.geometry(f"{min(1280, root.winfo_screenwidth()-80)}x{min(850, root.winfo_screenheight()-100)}")
         root.minsize(720, 480)
         self.model = ExternalLoweringModel()
         self.boost_enabled=tk.BooleanVar(value=False)
-        self.converter_mode=tk.StringVar(value='External 400 V · reviewed')
+        self.converter_mode=tk.StringVar(value='Battery exciter · reviewed')
         self.chopper_enabled=tk.BooleanVar(value=True)
         self.model.reset()
         self.model.motor_connected = True
@@ -93,10 +93,14 @@ class Application:
         self.control_canvas.bind("<Configure>", lambda event: self.control_canvas.itemconfigure(control_window, width=event.width))
         ttk.Label(controls, text="EXPLORE THE FLOW", font=("Segoe UI", 12, "bold"),wraplength=230).pack(anchor="w")
         mode_selector=ttk.Combobox(controls,textvariable=self.converter_mode,state='readonly',
-            values=('External 400 V · reviewed','5 · Legacy direct resistance','6 · Legacy ideal exciter','7 · Legacy DC-fed exciter'))
+            values=('Battery exciter · reviewed','5 · Legacy direct resistance','6 · Legacy ideal exciter','7 · Legacy DC-fed exciter'))
         mode_selector.pack(fill='x',pady=8)
         mode_selector.bind('<<ComboboxSelected>>',lambda event:self.change_power_stage())
-        ttk.Label(controls,text='Default: small external exciter, passive rectifier, DC brake. Modes 5–7 are legacy comparisons.',wraplength=230).pack(anchor='w')
+        ttk.Label(controls,text='Default: 24 V battery / boost exciter, passive rectifier, DC brake. Modes 5–7 are legacy comparisons.',wraplength=230).pack(anchor='w')
+        self.excitation_choice=tk.StringVar(value='Exciter only')
+        excitation_selector=ttk.Combobox(controls,textvariable=self.excitation_choice,state='readonly',values=('Exciter only','Capacitor only'))
+        excitation_selector.pack(fill='x',pady=4)
+        excitation_selector.bind('<<ComboboxSelected>>',lambda event:self.choose_excitation())
         self.dynamic_mode = tk.BooleanVar(value=True)
         ttk.Checkbutton(parameter_controls, text="Dynamic flux / capacitor model", variable=self.dynamic_mode, command=self.change_model).pack(anchor="w", pady=6)
         ttk.Label(controls,text='1. Choose an example',padding=(0,12,0,5)).pack(anchor='w')
@@ -115,7 +119,7 @@ class Application:
         self.excited = tk.BooleanVar(value=True)
         ttk.Checkbutton(parameter_controls,text='Legacy 24 V boost available',variable=self.boost_enabled,
                         command=self.toggle_boost).pack(anchor='w',pady=6)
-        ttk.Label(parameter_controls,text='Phase 7 only; absent from the external 400 V topology.',wraplength=230).pack(anchor='w')
+        ttk.Label(parameter_controls,text='Phase 7 only; absent from the battery exciter topology.',wraplength=230).pack(anchor='w')
         ttk.Checkbutton(controls, text="Exciter ON", variable=self.excited, command=self.enable_excitation).pack(anchor="w", pady=6)
         ttk.Label(controls,text='You can also click the exciter in the diagram. Watch the field after it switches off.',wraplength=230).pack(anchor='w')
         self.capacitors = tk.BooleanVar(value=True)
@@ -251,7 +255,7 @@ class Application:
 
     def update_guide(self):
         self.guide.set({
-            'External startup':'Press Start. The external 400 V supply builds flux at low frequency with the brake held. The brake releases after flux qualifies, then frequency ramps to 50 Hz.',
+            'External startup':'Press Start. The 24 V battery and boost converter builds flux at low frequency with the brake held. The brake releases after flux qualifies, then frequency ramps to 50 Hz.',
             '24 V startup':'Brake stays held. Let the boost charge the DC bus, enable the exciter, then release the brake to explore lowering. No automatic startup sequencer yet.',
             'Exciter handover':'Let the exciter build the magnetic field. Then switch it OFF and watch what remains.',
             'Residual seed':'Start with a tiny magnetic seed and no exciter. Watch for voltage and field to grow.',
@@ -267,7 +271,7 @@ class Application:
             self.model.boost_enabled=False
             self.boost_enabled.set(False)
             return
-        if self.converter_mode.get().startswith('External'):
+        if self.converter_mode.get().startswith('Battery exciter'):
             self.model.chopper_active=self.model.dc_exciter=self.model.boost_enabled=False
             return
         dynamic=isinstance(self.model,DynamicLoweringModel)
@@ -401,7 +405,7 @@ class Application:
             if not isinstance(self.model,ExternalLoweringModel):
                 hidden=hidden | REVIEWED_FIELDS
             if isinstance(self.model,ExternalLoweringModel):
-                hidden = hidden | {'battery_voltage','boost_target_voltage','boost_input_power_limit','boost_efficiency','boost_output_current_limit','boost_response','boost_voltage_gain','inverter_min_dc_voltage','ac_load_resistance'}
+                hidden = hidden | {'external_supply_voltage','boost_response','boost_voltage_gain','inverter_min_dc_voltage','ac_load_resistance'}
             if name not in hidden:
                 frame.pack(fill='x')
 
@@ -411,7 +415,7 @@ class Application:
             return
         self.sync()
         model_type = DynamicLoweringModel if self.dynamic_mode.get() else MechanicalModel
-        if self.dynamic_mode.get() and self.converter_mode.get().startswith('External'):
+        if self.dynamic_mode.get() and self.converter_mode.get().startswith('Battery exciter'):
             model_type=ExternalLoweringModel
         self.model = model_type(self.model.parameters)
         self.model.rectifier_enabled = self.rectifier.get() if self.dynamic_mode.get() else False
@@ -436,7 +440,7 @@ class Application:
         self.playing = False
         name = self.preset.get()
         if name=='External startup':
-            self.converter_mode.set('External 400 V · reviewed')
+            self.converter_mode.set('Battery exciter · reviewed')
             self.model.parameters=reviewed_parameters()
             for key,variable in self.inputs.items():
                 variable.set(str(getattr(self.model.parameters,key)))
@@ -448,7 +452,7 @@ class Application:
             self.play_button.configure(text='Play')
             self.message.set('From rest, no precharge or magnetic seed. Startup releases the brake only after flux qualifies. Parameters are estimates.')
             return
-        if self.converter_mode.get().startswith('External'):
+        if self.converter_mode.get().startswith('Battery exciter'):
             self.converter_mode.set('7 · Legacy DC-fed exciter' if name=='Exciter handover' else '5 · Legacy direct resistance')
         if name=='24 V startup':
             self.converter_mode.set('7 · DC-fed exciter')
@@ -553,7 +557,26 @@ class Application:
         self.sync()
         self.model.inverter_enabled = self.excited.get()
 
+    def choose_excitation(self):
+        if not isinstance(self.model,ExternalLoweringModel):
+            self.message.set('Select Battery exciter topology first.')
+            return
+        cap=self.excitation_choice.get()=='Capacitor only'
+        if cap and self.model.parameters.capacitor_capacitance<=0:
+            self.excitation_choice.set('Exciter only')
+            self.message.set('Set positive bank capacitance before selecting capacitor mode.')
+            return
+        self.model.excitation_mode='capacitor' if cap else 'exciter'
+        self.capacitors.set(cap)
+        self.model.start_mode='precharged' if cap and self.model.parameters.precharge_voltage>0 else 'residual'
+        self.reset()
+        self.message.set('Excitation mode changed; reset with consistent stored energy.')
+
     def connect_capacitors(self):
+        if isinstance(self.model,ExternalLoweringModel):
+            self.excitation_choice.set('Capacitor only' if self.capacitors.get() else 'Exciter only')
+            self.choose_excitation()
+            return
         if not self.valid_dc_configuration():
             self.capacitors.set(self.model.capacitors_enabled)
             return
@@ -565,9 +588,9 @@ class Application:
 
     def valid_dc_configuration(self, parameters=None):
         p = parameters or self.model.parameters
-        if self.dynamic_mode.get() and self.converter_mode.get().startswith('External'):
-            if not self.rectifier.get() or not self.capacitors.get() or p.capacitor_capacitance<=0 or not self.connected.get():
-                self.message.set('Reviewed topology requires the machine, AC bank and passive DC path connected.')
+        if self.dynamic_mode.get() and self.converter_mode.get().startswith('Battery exciter'):
+            if not self.rectifier.get() or not self.connected.get():
+                self.message.set('Battery topology requires the machine and passive DC path connected.')
                 return False
         if (self.dynamic_mode.get() and self.converter_mode.get().startswith('7') and self.boost_enabled.get()
                 and p.boost_target_voltage>p.chopper_threshold-20):
@@ -577,7 +600,7 @@ class Application:
                 and (not self.rectifier.get() or not self.capacitors.get() or p.capacitor_capacitance<=0)):
             self.message.set('Phase 7 needs the DC path and AC capacitors. Select Phase 5 or 6 for earlier comparisons.')
             return False
-        if (self.dynamic_mode.get() and self.rectifier.get() and not self.excited.get()
+        if (not isinstance(self.model,ExternalLoweringModel) and self.dynamic_mode.get() and self.rectifier.get() and not self.excited.get()
                 and (not self.capacitors.get() or p.capacitor_capacitance<=0)):
             self.message.set('Passive DC operation needs nonzero AC capacitance in this averaged model. Keep the bank connected, or turn off the DC path first.')
             return False
@@ -645,7 +668,7 @@ class Application:
         label(400, 488, f"{'Machine terminal export' if dynamic else 'Export to AC sink'}: {r['electrical_export']:.1f} W\nMotor shaft power: {r['motor_shaft_power']:.1f} W\nRotor heat loss: {r['rotor_loss']:.1f} W")
         label(22, 565, "Export: positive = generating; negative = power drawn from source. Torque: positive = lowering.", color='#93a3ba', size=10)
         label(22, 590, 'Dynamic flux and capacitor voltage; power includes changes in stored electrical energy.' if dynamic else "Beyond peak slip: available torque falls as slip grows." if r['beyond_peak'] else "Ideal supply establishes excitation instantly; no electrical transients modeled.", color='#93a3ba', size=10)
-        label(22, 630, 'EXTERNAL 400 V · SMALL FLUX EXCITER' if r.get('external_exciter') else 'DC-FED EXCITATION · '+r['inverter_status'] if r.get('dc_exciter') else "IDEAL EXCITATION · ON" if (dynamic or connected) and self.model.inverter_enabled else "IDEAL EXCITATION · OFF / DISCONNECTED", color='#4ee1bd', size=12)
+        label(22, 630, 'BATTERY / BOOST · SMALL FLUX EXCITER' if r.get('external_exciter') else 'DC-FED EXCITATION · '+r['inverter_status'] if r.get('dc_exciter') else "IDEAL EXCITATION · ON" if (dynamic or connected) and self.model.inverter_enabled else "IDEAL EXCITATION · OFF / DISCONNECTED", color='#4ee1bd', size=12)
         voltage_note = 'V RMS-equivalent' if dynamic else 'V RMS'
         field_note = f"Flux: {r.get('flux_magnitude',0):.4f} Wb turn" if dynamic else f"Effective peak torque: {r['effective_peak_torque']:.1f} N m"
         frequency_note = f"Bus frequency: {r.get('bus_frequency',0):.2f} Hz (vector estimate)" if dynamic else f"Frequency: {self.model.parameters.supply_frequency:g} Hz (fixed setpoint)"
@@ -663,7 +686,7 @@ class Application:
         row1, row2, row3 = system_y+34, system_y+85, system_y+136
         boxes = [(22, row1, 'Load / drum', True), (180, row1, 'Induction machine', connected), (338, row1, 'AC bus', connected), (496, row1, 'Excitation inverter', self.model.inverter_enabled), (338, row2, 'Delta capacitors', self.model.capacitors_enabled), (22, row3, '3-phase rectifier', dc_on), (180, row3, 'DC bus', dc_on), (338, row3, 'Direct DC path', dc_on), (496, row3, 'Brake resistor', dc_on), (22, row2, '24 V', False), (180, row2, 'Bootstrap', False), (680, row2, 'AC resistive load' if dynamic else 'Ideal P source/sink', not dc_on)]
         if r.get('external_exciter'):
-            boxes=boxes[:9]+[(680,row1,'External 400 V',self.model.inverter_enabled)]
+            boxes=boxes[:9]+[(680,row1,'Battery exciter',self.model.inverter_enabled)]
             c.create_line(680,row1+21,636,row1+21,fill='#ffc36a',arrow='last',width=2)
         else:
             c.create_line(460, row1+42, 460, row2-4, 750, row2-4, 750, row2, fill=mode_color if connected else '#687384', arrow='both', width=2)
@@ -673,7 +696,7 @@ class Application:
             c.create_line(*points, fill="#687384", arrow="last")
         for x,y,title,active in boxes:
             if r.get('external_exciter') and title in ('24 V','Bootstrap'):
-                title='External 400 V' if title=='24 V' else 'Exciter supply'
+                title='Battery exciter' if title=='24 V' else 'Exciter supply'
                 active=self.model.inverter_enabled
             elif title in ('24 V','Bootstrap'):
                 active=r.get('boost_enabled',False)

@@ -10,6 +10,21 @@ def energy_budget(model, r):
     """
     if not hasattr(model, 'initial_energy'):
         return None
+    if 'power_diagnostics' in r:
+        p=model.parameters
+        height=p.mass*p.gravity*p.crane_height
+        inputs=[('Initial system energy',height+model.initial_energy)]
+        outputs=[('Height remaining',height+r['potential_energy']),
+                 ('Kinetic',r['kinetic_energy']),('Magnetic',r['magnetic_energy']),
+                 ('AC capacitor',r['capacitor_energy']),('DC capacitor',r['dc_energy']),
+                 ('Battery remaining',r['battery_energy']),
+                 ('Mechanical heat / impact',model.mechanical_dissipation)]
+        for name,key in [('Copper','copper_energy'),('Core','core_energy'),('Exciter','inverter_loss_energy'),
+                         ('Rectifier/source','rectifier_loss_energy'),('Resistor','dc_brake_energy'),
+                         ('Boost heat','boost_loss_energy'),('Charger','charger_loss_energy'),('Battery heat','battery_loss_energy')]:
+            outputs.append((name,r[key]))
+        outputs.append(('Precharge heat',model.electrical.precharge_loss_energy))
+        return dict(inputs=inputs,outputs=outputs,total=sum(v for _,v in inputs),residual=r['energy_residual'],released=-r['potential_energy'])
     p = model.parameters
     potential = p.mass*p.gravity*p.crane_height
     source = r['source_energy']

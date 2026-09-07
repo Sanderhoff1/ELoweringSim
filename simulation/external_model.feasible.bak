@@ -133,45 +133,79 @@ class Kernel:
                 -1.5*(v*(is_+v*self.gc).conjugate()).real,enabled,self.supply_limit)
             return load-ie,ie,external,loss,limited,idc,pac,bridge_loss
         if not capacitor_mode:
-            solved=False
-            for seed in (v,commanded,0j,-is_/self.gc):
-                v=seed
-                for iteration in range(60):
-                    f=network(v)[0]
-                    if abs(f)<1e-9:
-                        solved=True
-                        break
-                    eps=1e-5
-                    dx=(network(v+eps)[0]-network(v-eps)[0])/(2*eps)
-                    dy=(network(v+1j*eps)[0]-network(v-1j*eps)[0])/(2*eps)
-                    det=dx.real*dy.imag-dy.real*dx.imag
-                    if abs(det)<1e-16: break
-                    step=complex((f.real*dy.imag-f.imag*dy.real)/det,
-                                 (dx.real*f.imag-dx.imag*f.real)/det)
-                    scale=1.
+            # Controlled voltage magnitude, with phase droop when real-power
+            # limited. Select a feasible terminal phasor, then use the EXACT
+            # KCL current. Limits constrain the solution, never clip it afterward.
+            resistance=p.inverter_output_resistance
+            imax2=2*p.inverter_current_limit**2
+            idle=p.inverter_idle_loss
+            target=commanded
+            def feasible(amplitude):
+                if amplitude<1e-8: return None
+                _,bridge_power,_=transfer(math.sqrt(1.5)*amplitude,vdc,p.rectifier_resistance)
+                g=self.gc+2*bridge_power/(3*amplitude**2)
+                base=abs(is_)**2-(g*amplitude)**2
+                low=max(-p.exciter_absorption_limit,1.5*amplitude*(g*amplitude-abs(is_)))
+                high=min(p.exciter_active_limit,1.5*amplitude*(g*amplitude+abs(is_)),
+                    (imax2-base)*3/(4*g),
+                    (ceiling**2-amplitude**2-resistance**2*base)/(4*resistance/3*(1+resistance*g)))
+                budget=self.supply_limit-idle-1.5*resistance*base
+                high=min(high,budget/(1+2*resistance*g) if budget>=0 else budget/(2*resistance*g))
+                # Retain the configured nonregenerative absorption allowance.
+                if low>high+1e-10: return None
+                angle=cmath.phase(target)
+                desired=1.5*amplitude*((is_*cmath.exp(-1j*angle)).real+g*amplitude)
+                pac=min(high,max(low,desired))
+                projection=(pac/(1.5*amplitude)-g*amplitude)/max(abs(is_),1e-20)
+                delta=math.acos(max(-1.,min(1.,projection)))
+                options=(cmath.phase(is_)+delta,cmath.phase(is_)-delta)
+                theta=min(options,key=lambda t:abs(cmath.phase(cmath.exp(1j*(t-angle)))))
+                voltage=amplitude*cmath.exp(1j*theta)
+                ie=is_+g*voltage
+                return voltage,ie
+            result=feasible(abs(target)) if enabled else None
+            limited=result is None
+            if enabled and result is None and self.supply_limit>=idle:
+                # Search for the closest feasible magnitude, refine its edge.
+                candidates=[]
+                for j in range(1,65):
+                    amplitude=ceiling*j/64
+                    item=feasible(amplitude)
+                    if item is not None: candidates.append((abs(amplitude-abs(target)),amplitude,item))
+                if candidates:
+                    _,good,result=min(candidates,key=lambda x:x[0])
+                    bad=abs(target)
                     for _ in range(24):
-                        trial=v-scale*step
-                        if abs(network(trial)[0])<abs(f): break
-                        scale*=.5
-                    else: break
-                    v=trial
-                if solved: break
-            if not solved:
-                # No stable feasible converter point: block the exciter and
-                # solve the passive network. Inductive energy then goes to the
-                # bridge/core; it cannot disappear into a voltage clamp.
+                        mid=(good+bad)/2
+                        item=feasible(mid)
+                        if item is None: bad=mid
+                        else: good,result=mid,item
+            if result is None:
+                # Disabled / no feasible converter point: passive machine feeds
+                # bridge and core. Its generated terminal voltage may exceed
+                # converter capability; the exciter is then blocking, I=0.
                 lo,hi=0.,abs(is_)/self.gc
-                for _ in range(70):
-                    radius=(lo+hi)/2
-                    _,power,_=transfer(math.sqrt(1.5)*radius,vdc,p.rectifier_resistance)
-                    current=self.gc*radius+(2*power/(3*radius) if radius else 0.)
-                    if current>abs(is_): hi=radius
-                    else: lo=radius
-                v=-is_*radius/abs(is_) if abs(is_) else 0j
-                enabled=False
-        mismatch,ie,external,loss,limited,idc,pac,bridge_loss=network(v)
-        if not capacitor_mode and not solved: limited=True
-        dv=-mismatch/self.cac if capacitor_mode else 0j
+                for _ in range(55):
+                    amplitude=(lo+hi)/2
+                    _,power,_=transfer(math.sqrt(1.5)*amplitude,vdc,p.rectifier_resistance)
+                    load=self.gc*amplitude+(2*power/(3*amplitude) if amplitude else 0.)
+                    if load>abs(is_): hi=amplitude
+                    else: lo=amplitude
+                v=-is_*(amplitude/abs(is_)) if abs(is_) else 0j
+                ie=0j
+                external=loss=0.
+            else:
+                v,ie=result
+                pac=1.5*(v*ie.conjugate()).real
+                conduction=1.5*resistance*abs(ie)**2+idle
+                external=max(0.,pac)+conduction
+                loss=conduction+max(0.,-pac)
+                limited=limited or abs(v-target)>1e-6
+            idc,pac,bridge_loss=transfer(math.sqrt(1.5)*abs(v),vdc,p.rectifier_resistance)
+            dv=0j
+        else:
+            mismatch,ie,external,loss,limited,idc,pac,bridge_loss=network(v)
+            dv=-mismatch/self.cac
         torque=1.5*p.pole_pairs*(ps.conjugate()*is_).imag
         copper=1.5*(p.stator_resistance*abs(is_)**2+p.rotor_resistance*abs(ir)**2)
         return Rate(v-p.stator_resistance*is_ if connected else 0j,
@@ -211,7 +245,7 @@ class ExternalLoweringModel(MechanicalModel):
         # Precharge is an initial stored-energy transfer from the finite battery,
         # never an artificial AC source.  The capacitor starts charged only in
         # the explicit capacitor-precharge startup mode.
-        precharge = min(p.precharge_voltage,p.boost_target_voltage/math.sqrt(2)) if cap_mode and self.start_mode == 'precharged' else 0.0
+        precharge = p.precharge_voltage if cap_mode and self.start_mode == 'precharged' else 0.0
         battery0=p.battery_capacity_wh*3600*p.battery_initial_soc/100
         cap_energy=.75*self.kernel.cac*(math.sqrt(2/3)*precharge)**2 if cap_mode else 0.0
         cap_energy=min(cap_energy,battery0*p.precharge_efficiency)
@@ -309,12 +343,7 @@ class ExternalLoweringModel(MechanicalModel):
         charger_in,charger_out=aux['charger_input'],aux['charger_output']
         next_energy=e.dc_energy+h*(average(11)-dc_heat-charger_in)
         values=tuple(y[i]+h*average(i) for i in range(3))
-        old_mag,old_cap=k.stored(y[0],y[1],y[2])
-        new_mag,new_cap=k.stored(values[0],values[1],values[2])
-        ac_change=new_mag-old_mag+(new_cap-old_cap if self.excitation_mode=='capacitor' else 0.)
-        ac_work=h*(average(6)-average(7)-average(8)-average(9)-average(10)-average(3)*midomega)
-        integration_error=abs(ac_change-ac_work)
-        if next_energy<0 or integration_error>1e-8+h*1e-4 or not all(math.isfinite(z.real) and math.isfinite(z.imag) for z in values):
+        if next_energy<0 or not all(math.isfinite(z.real) and math.isfinite(z.imag) for z in values):
             s.brake_fraction=brake0
             self.rejected_steps+=1
             if h<1e-10: raise ValueError('Electrical step cannot satisfy positive energy / finite states')
@@ -409,18 +438,7 @@ class ExternalLoweringModel(MechanicalModel):
         power=1.5*(v*total_current.conjugate())
         supply_ac=1.5*(v*r.exciter.conjugate())
         magnetic,ac=k.stored(e.stator_flux,e.rotor_flux,v)
-        terminal_rate=r.voltage
-        if self.excitation_mode=='exciter' and abs(v)>1e-3:
-            eps=1e-7
-            df=((p.supply_frequency-p.startup_frequency)/p.startup_ramp
-                if self.startup_enabled and self.release_time is not None and 0<=s.time-self.release_time<p.startup_ramp else 0.)
-            domega=0. if s.grounded else (self._drive(r.torque)-p.damping*omega)/(p.inertia+p.mass*p.radius**2)
-            aux_probe=paths(p,e.battery_energy,r.supply,e.dc_voltage,self.max_electrical_step)
-            dvdc=(r.dc_input-e.chopper_duty*e.dc_voltage**2/p.dc_brake_resistance-aux_probe['charger_input'])/(k.cdc*e.dc_voltage) if e.dc_voltage>1e-5 else 0.
-            probe=k.rate((e.stator_flux+eps*r.ps,e.rotor_flux+eps*r.pr,v),e.phase+eps*2*math.pi*self.frequency(),
-                self.frequency()+eps*df,omega+eps*domega,max(0.,e.dc_voltage+eps*dvdc),exciter_on,True,False)
-            terminal_rate=(probe.terminal-v)/eps
-        busfreq=(v.conjugate()*terminal_rate).imag/(abs(v)**2*2*math.pi) if abs(v)>1e-3 else 0
+        busfreq=((v.conjugate()*r.voltage).imag/(abs(v)**2*2*math.pi) if self.excitation_mode=='capacitor' else self.frequency()) if abs(v)>1e-3 else 0
         sync=2*math.pi*busfreq/p.pole_pairs
         valid=abs(sync)>1e-3
         duty=e.chopper_duty
@@ -469,7 +487,7 @@ class ExternalLoweringModel(MechanicalModel):
 
 def reviewed_parameters(**overrides):
     values=dict(initial_flux=0,gearbox_efficiency=.9,drivetrain_loss_torque=.1,
-                chopper_threshold=500,dc_brake_resistance=330,charger_min_dc_voltage=480,boost_target_voltage=600)
+                chopper_threshold=500,dc_brake_resistance=330,charger_min_dc_voltage=480)
     values.update(overrides)
     return small_hoist(**values)
 

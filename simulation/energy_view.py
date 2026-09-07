@@ -1,121 +1,152 @@
-"""Responsive two-row energy diagram with reserved routing lanes."""
+"""Connection-led power diagram; all physics comes from model diagnostics."""
 import math
 
 GOLD, PURPLE, TEAL, HEAT = '#ffc36a', '#b7a2ff', '#60e0c1', '#ff977a'
-WHITE, MUTED, BG = '#e5edf6', '#90a5bb', '#101b2c'
+WHITE, MUTED, BG = '#e5edf6', '#a6b6c8', '#101b2c'
 
 
 class EnergyView:
     def __init__(self, canvas, toggle_exciter):
-        self.canvas = canvas
+        self.canvas=canvas
+        self.toggle_exciter=toggle_exciter
+        canvas.tag_bind('exciter','<Button-1>',lambda event:self.toggle_exciter())
+        self.clock=0.
 
     def draw(self, model, r, history, playing):
-        c = self.canvas
+        c=self.canvas
         c.delete('all')
-        width, height = max(1, c.winfo_width()), max(1, c.winfo_height())
-        c.configure(scrollregion=(0, 0, width, height))
-        sx, sy = width / 960, height / 690
-        font_scale = min(sx, sy)
-        def xy(x, y):
-            return x*sx, y*sy
-        def text(x, y, value, size=11, color=WHITE, anchor='nw'):
-            return c.create_text(*xy(x, y), text=value, fill=color,
-                font=('Segoe UI', -max(8, round(size*font_scale))),
-                anchor=anchor)
-        def wire(points, power, color=GOLD, dashed=False):
-            if power < 0:
-                points = list(reversed(points))
-            c.create_line(*(v for point in points for v in xy(*point)),
-                fill=color if abs(power) > .01 else '#526479',
-                width=2, arrow='last', arrowshape=(7, 9, 4),
-                dash=(4, 4) if dashed else None)
-        def card(col, y, title, value, lines, accent=TEAL, subtitle=''):
-            x = 30 + col*235
-            c.create_rectangle(*xy(x, y), *xy(x+195, y+114),
-                fill='#192b3e', outline='#344b62')
-            c.create_rectangle(*xy(x, y), *xy(x+195, y+3),
-                fill=accent, outline='')
-            text(x+13, y+14, title, 11, accent)
-            text(x+13, y+36, value, 19)
-            for n, line in enumerate(lines):
-                text(x+13, y+66+n*17, line, 10, MUTED)
-            return x
-        p = model.parameters
-        get = lambda name: r.get(name, 0.0)
-        vdc = get('dc_voltage')
-        export = get('electrical_export')
-        brake = get('dc_brake_power')
-        cap = r.get('excitation_mode') == 'capacitor'
-        text(30, 16, 'LOWERING • ENERGY FLOW', 17)
-        text(930, 20, ('PLAYING' if playing else 'PAUSED')+
-             f'  /  {model.state.time:.1f} s', 11, MUTED, 'ne')
-        text(30, 45, 'Capacitor only' if cap else 'Exciter only', 11, TEAL)
-        text(930, 45, 'REAL POWER  →     REACTIVE  ⇄     HEAT  ↓', 10, GOLD, 'ne')
-
-        # Auxiliary supply is adjacent to excitation. No feed crosses a machine.
-        by = 78
-        battery = get('battery_power')
-        boost = get('boost_power')
-        charger = abs(get('charger_power'))
-        wire([(225,135),(265,135)], boost/max(p.boost_efficiency, .01))
-        wire([(460,135),(500,135)], boost)
-        wire([(833,192),(833,204),(8,204),(8,135),(30,135)], charger, TEAL)
-        # Right perimeter routes charger feed clear of both main rows.
-        wire([(598,546),(598,558),(950,558),(950,135),(930,135)], charger, TEAL)
-        wire([(598,192),(598,216),(833,216),(833,265)],
-             get('capacitor_reactive_supply') if cap else get('inverter_real_power'),
-             PURPLE if cap else GOLD, cap)
-        card(0,by,'24 V BATTERY',f"{get('battery_soc'):.1f}% SOC",
-             [f"{get('battery_remaining_wh'):.1f} Wh remaining",
-              f"{get('battery_voltage'):.1f} V   {get('battery_current'):+.2f} A   {battery:+.0f} W"])
-        card(1,by,'BOOST / PRECHARGE',f'{boost:.0f} W',
-             ['Battery → excitation',f"Heat {get('boost_loss'):.1f} W"])
-        card(2,by,'CAPACITOR BANK' if cap else 'EXCITER',
-             f"{get('capacitor_energy'):.2f} J" if cap else f"{get('inverter_real_power'):+.0f} W",
-             [f"Q {get('capacitor_reactive_supply') if cap else get('inverter_reactive_supply'):+.0f} var",
-              'Exciter disconnected' if cap else 'Capacitor bank disconnected'], PURPLE if cap else TEAL)
-        card(3,by,'BATTERY CHARGER',f'{charger:.0f} W',
-             ['DC link → 24 V battery','Charge input • teal route'],TEAL)
-
-        text(30,239,'01  MECHANICAL → AC',10,MUTED)
-        text(930,239,'↓ TO RECTIFIER',10,MUTED,'ne')
-        y1,y2=265,432
-        for i,power in enumerate((get('gravity_power'),-get('motor_shaft_power'),export)):
-            wire([(225+235*i,322),(265+235*i,322)],power)
-        wire([(833,379),(833,432)],get('rectifier_power'))
-        for i,power in enumerate((brake,brake,get('dc_input_power'))):
-            wire([(265+235*i,489),(225+235*i,489)],power)
-        card(0,y1,'LOAD',f"{get('velocity'):+.2f} m/s",
-             [f"Gravity {p.mass*p.gravity:.0f} N",
-              f"{get('gravity_power'):+.0f} W released"],GOLD)
-        card(1,y1,'GEAR / BEARINGS',f"{get('omega')*60/(2*math.pi):.0f} rpm",
-             [f"Gear heat {get('gear_power'):.1f} W",
-              f"Bearings {get('drivetrain_power'):.1f} W"])
-        card(2,y1,'INDUCTION MACHINE',f'{export:+.0f} W AC',
-             [f"{get('motor_torque'):+.1f} Nm   {get('machine_line_current'):.2f} A RMS",
-              f"Q absorbed {get('machine_reactive_demand'):+.0f} var"])
-        card(3,y1,'AC BUS',f"{get('line_voltage'):.1f} V",
-             [f"Line–line RMS   {get('bus_frequency'):.2f} Hz",
-              f"To bridge {get('rectifier_power'):+.0f} W"])
-        text(30,407,'02  HEAT ← DC POWER',10,MUTED)
-        text(930,407,'FLOW RIGHT TO LEFT',10,MUTED,'ne')
-        card(0,y2,'BRAKE RESISTOR',f'{brake:.0f} W heat',
-             [f'{p.dc_brake_resistance:g} ohm','Energy leaves to ambient'],HEAT)
-        card(1,y2,'CHOPPER',f"{100*get('chopper_duty'):.0f}% duty",
-             [f'Setpoint {p.chopper_threshold:g} V',f'{brake:.0f} W to resistor'],GOLD)
-        card(2,y2,'DC LINK',f'{vdc:.1f} V DC',
-             [f"{get('dc_energy'):.2f} J stored",f"Charger input {charger:.0f} W"])
-        card(3,y2,'DIODE RECTIFIER',f"{get('dc_input_power'):.0f} W DC",
-             [f"{get('rectifier_current'):.2f} A DC",f"Bridge heat {get('rectifier_loss'):.1f} W"])
-        # Heat stays in a separate, readable footer, with no long text strip.
-        text(30,585,'HEAT TO AMBIENT',11,HEAT)
-        losses=[
-            ('Machine copper', get('stator_loss')+get('rotor_loss')),
-            ('Machine core',get('core_loss')),
-            ('Exciter',get('inverter_loss')),
-            ('Bridge',get('rectifier_loss'))]
-        for col,(name,value) in enumerate(losses):
-            x=30+235*col
-            text(x,614,name,11,MUTED)
-            text(x,635,f'{value:.1f} W',16,HEAT)
-        text(30,671,'Positive battery current = discharge. Connection arrows follow signed power.',9,MUTED)
+        width,height=max(1,c.winfo_width()),max(1,c.winfo_height())
+        sx,sy=width/960,height/690
+        c.configure(scrollregion=(0,0,width,height))
+        if playing:self.clock=model.state.time
+        t=self.clock
+        def xy(x,y):return x*sx,y*sy
+        def text(x,y,value,size=11,color=WHITE,anchor='n'):
+            return c.create_text(*xy(x,y),text=value,fill=color,font=('Segoe UI',-max(11,round(size*min(sx,sy)))),anchor=anchor,justify='center')
+        def line(points,power,color=GOLD,reactive=False):
+            pts=list(points)
+            if power<0 and not reactive:pts.reverse()
+            coords=[z for point in pts for z in xy(*point)]
+            c.create_line(*coords,fill=color if abs(power)>.01 else '#45566a',width=2 if reactive else 3,arrow='both' if reactive else 'last',arrowshape=(6,8,3),dash=(3,4) if reactive else None)
+            if abs(power)<.01:return
+            lengths=[math.dist(a,b) for a,b in zip(pts,pts[1:])]
+            length=sum(lengths)
+            for j in range(3):
+                f=(.5+.42*math.sin(2*math.pi*t*1.4+j*1.5)) if reactive else (t*(.22+.08*math.log1p(abs(power)))+j/3)%1
+                distance=f*length
+                for n,segment in enumerate(lengths):
+                    if distance<=segment:
+                        a,b=pts[n:n+2];q=distance/max(segment,1e-9)
+                        x,y=xy(a[0]+q*(b[0]-a[0]),a[1]+q*(b[1]-a[1]))
+                        c.create_oval(x-2.5,y-2.5,x+2.5,y+2.5,fill=color,outline='')
+                        break
+                    distance-=segment
+        def transfer(x,y,port):
+            kind=port['kind'];power=port['power']
+            arrow='→' if power>=0 else '←'
+            if kind=='ac':
+                values=f"{port['voltage']:.0f} V LL RMS\n{port['current']:.2f} A {'Ieq' if port['equivalent'] else 'RMS'}"
+            elif kind=='dc':values=f"{port['voltage']:.0f} V DC\n{port['current']:.2f} A DC"
+            elif kind=='shaft':values=f"{port['torque']:.2f} Nm\n{port['rpm']:.0f} rpm"
+            else:values=f"{port['force']:.0f} N\n{port['velocity']*60:.1f} m/min"
+            text(x,y,values,11,MUTED)
+            text(x,y+32,f"{abs(power):.1f} W {arrow}",12,GOLD)
+            if kind=='ac':text(x,y+50,f"Q {port['reactive']:+.0f} var ⇄",11,PURPLE)
+        def card(x,y,title,state='',w=80):
+            c.create_rectangle(*xy(x-w/2,y),*xy(x+w/2,y+100),fill='#1b2d42',outline='#41556d')
+            text(x,y+8,title,12,TEAL)
+            text(x,y+75,state,11,MUTED)
+        def level(x,y,fraction,label):
+            fraction=max(0,min(1,fraction))
+            c.create_rectangle(*xy(x-23,y),*xy(x+23,y+14),fill='#0c1725',outline='#526479')
+            c.create_rectangle(*xy(x-22,y+1),*xy(x-22+44*fraction,y+13),fill=TEAL,outline='')
+            text(x,y+18,label,11,MUTED)
+        d=r.get('power_diagnostics')
+        if not d:
+            text(480,250,'Energy diagnostics require the battery / exciter model.',14)
+            return
+        comp,ports=d['components'],d['connections']
+        p=model.parameters
+        cap=model.excitation_mode=='capacitor'
+        text(18,14,'ENERGY FLOW',18,WHITE,'nw')
+        text(942,18,f"{'RUNNING' if playing else 'PAUSED'}  |  {model.state.time:.2f} s",12,MUTED,'ne')
+        text(480,46,'REAL →  gold     REACTIVE ⇄  purple     HEAT ↓  coral     STORAGE ↕  mint',11)
+        # Two dedicated perimeter lanes: charger output above, DC feed right.
+        line([(770,145),(770,78),(70,78),(70,145)],ports['charger_battery']['power'],TEAL)
+        text(400,82,f"Charge: {ports['charger_battery']['voltage']:.1f} V | {ports['charger_battery']['current']:.2f} A | {ports['charger_battery']['power']:.1f} W \u2190",11,TEAL)
+        line([(661,350),(661,262),(925,262),(925,195),(830,195)],ports['dc_charger']['power'],TEAL)
+        transfer(860,96,ports['dc_charger'])
+        c.create_line(*xy(860,150),*xy(860,190),fill='#46596f')
+        # Auxiliary supply cards and their own short connection lanes.
+        card(70,145,'BATTERY',f"{r['battery_soc']:.1f}% SOC",100)
+        level(70,190,r['battery_soc']/100,f"{r['battery_remaining_wh']:.1f} Wh")
+        card(270,145,'BOOST','regulated DC',100)
+        level(270,190,ports['boost_exciter']['voltage']/p.boost_target_voltage,f"{p.boost_target_voltage:.0f} V")
+        card(430,145,'CAP BANK' if cap else 'EXCITER','connected' if cap else 'flux control',100)
+        if cap:level(430,190,r['capacitor_energy']/max(1,.5*model.kernel.cac*400**2),f"{r['capacitor_energy']:.2f} J")
+        else:
+            c.create_rectangle(*xy(380,145),*xy(480,245),fill='',outline='',tags='exciter')
+            text(430,193,f"{r['inverter_current']:.2f} A RMS",12,PURPLE)
+        card(770,145,'CHARGER','isolated DC',120)
+        text(770,191,f"{p.charger_efficiency*100:.0f}% eff.",12)
+        for a,b,name in ((120,220,'battery_boost'),(320,380,'boost_exciter')):
+            line([(a,177),(b,177)],ports[name]['power'])
+            transfer((a+b)/2,96,ports[name])
+        for x,name in ((70,'battery'),(270,'boost'),(770,'charger')):
+            line([(x,245),(x,260)],comp[name]['heat'],HEAT)
+            text(x,263,f"{comp[name]['heat']:.1f} W heat",11,HEAT)
+        text(750,626,f"Battery {r['battery_voltage']:.2f} V | {r['battery_current']:+.2f} A | {r['battery_power']:+.1f} W",11,MUTED)
+        # Excitation connects to the bus in the clear lane between port labels.
+        name='bus_capacitor' if cap else 'exciter_bus'
+        port=ports[name]
+        real= -port['power'] if cap else port['power']
+        line([(420,245),(420,350)],real)
+        line([(432,245),(432,350)],port['reactive'],PURPLE,True)
+        transfer(553,180,port)
+        line([(480,195),(490,195)],real)
+        text(553,248,f"{comp['exciter']['heat']:.1f} W exciter heat",11,HEAT)
+        line([(468,245),(468,253),(490,253)],comp['exciter']['heat'],HEAT)
+        # Entire primary path stays left to right.
+        centers=[56+121*i for i in range(8)]
+        titles=['LOAD','GEAR /\nBEARINGS','INDUCTION\nMACHINE','AC BUS','RECTIFIER','DC LINK','CHOPPER','BRAKE\nRESISTOR']
+        states=[f"{r['position']:.2f} m",'shaft',f"{r['flux_magnitude']:.2f} Wb",f"{r['bus_frequency']:.1f} Hz",'averaged',f"{r['dc_energy']:.1f} J",f"{r['chopper_duty']*100:.0f}% duty",f"{p.dc_brake_resistance:.0f} ohm"]
+        for x,title,state in zip(centers,titles,states):card(x,350,title,state)
+        names=['load_gear','gear_machine','machine_bus','bus_rectifier','rectifier_dc','dc_chopper','chopper_resistor']
+        for i,name in enumerate(names):
+            a,b=centers[i]+40,centers[i+1]-40
+            line([(a,389),(b,389)],ports[name]['power'])
+            transfer((a+b)/2,282,ports[name])
+            c.create_line(*xy((a+b)/2,347),*xy((a+b)/2,386),fill='#46596f')
+            if ports[name]['kind']=='ac':line([(a,410),(b,410)],ports[name]['reactive'],PURPLE,True)
+        # Physical state glyphs are embedded in the compact cards.
+        y=383+33*math.log1p(max(0,r['position']))/math.log1p(max(p.crane_height,1e-9))
+        c.create_line(*xy(56,383),*xy(56,y),fill=MUTED,width=2)
+        c.create_rectangle(*xy(47,y),*xy(65,y+10),fill=GOLD,outline='')
+        x=centers[2];flux=min(1,r['flux_magnitude']/p.exciter_flux_target)
+        color='#%02x%02x%02x'%(int(45+70*flux),int(65+150*flux),int(95+140*flux))
+        c.create_oval(*xy(x-18,388),*xy(x+18,422),outline=color,width=2+3*flux)
+        angle=model.state.angle if playing else getattr(self,'angle',model.state.angle)
+        self.angle=angle
+        c.create_line(*xy(x,405),*xy(x+15*math.cos(angle),405+15*math.sin(angle)),fill=GOLD,width=3)
+        level(centers[5],393,r['dc_voltage']/max(p.chopper_threshold,1),f"{r['dc_voltage']:.0f} V")
+        level(centers[6],393,r['chopper_duty'],'PWM')
+        # Each heat/storage branch is attached to its originating component.
+        keys=['load','gear','machine','ac_bus','rectifier','dc_link','chopper','resistor']
+        for x,key in zip(centers,keys):
+            item=comp[key]
+            if key in ('gear','machine','rectifier','resistor'):
+                line([(x-12,450),(x-12,480)],item['heat'],HEAT)
+                label=(f"Cu {item['copper']:.1f} W\nFe {item['core']:.1f} W" if key=='machine' else f"{item['heat']:.1f} W heat")
+                text(x,485,label,11,HEAT)
+                if key=='rectifier':text(x,519,'bridge / source',11,MUTED)
+            if key in ('load','gear','machine','dc_link'):
+                flow=item['storage_rate']
+                line([(x+29,450),(x+53,450),(x+53,550),(x,550)],flow,TEAL)
+                label={'load':'Height energy','gear':'Kinetic energy','machine':'Magnetic field','dc_link':'DC capacitor'}[key]
+                text(x,561,label,11,TEAL)
+                text(x,582,f"{flow:+.1f} W\n{item['energy']:.2f} J",11,TEAL)
+        text(553,269,f"{comp['capacitor']['storage_rate']:+.1f} W stored" if cap else '',11,TEAL)
+        line([(20,245),(9,245),(9,596),(25,596)],comp['battery']['storage_rate'],TEAL)
+        text(160,626,f"Battery storage {comp['battery']['storage_rate']:+.1f} W",11,TEAL)
+        text(480,647,f"Conservation residual {r['energy_residual']:+.6f} J   |   AC KCL {abs(d['kcl']):.2e} A",11,MUTED)
+        text(480,669,'Signed battery current: + discharge / - charge. Ieq: averaged bridge fundamental equivalent.',11,MUTED)

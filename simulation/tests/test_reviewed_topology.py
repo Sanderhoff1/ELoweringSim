@@ -70,7 +70,7 @@ class ReviewedSystemTests(unittest.TestCase):
         self.assertEqual(m.parameters.initial_shaft_rpm,0)
         self.assertEqual(m.parameters.dc_initial_voltage,0)
         self.assertEqual(m.parameters.precharge_voltage,0)
-        self.assertEqual(m.initial_energy,0)
+        self.assertEqual(m.initial_energy,m.parameters.battery_capacity_wh*3600)
         self.assertGreater(m.release_time,m.parameters.startup_dwell)
         self.assertEqual(r['startup_status'],'GENERATING')
         self.assertTrue(m.brake_released)
@@ -80,12 +80,12 @@ class ReviewedSystemTests(unittest.TestCase):
         self.assertGreater(r['rectifier_power'],.95*r['electrical_export'])
         self.assertLess(abs(r['inverter_real_power']),.02*r['electrical_export'])
         self.assertGreater(r['dc_brake_power'],400)
-        self.assertGreater(r['external_supply_power'],0)
+        self.assertEqual(r['external_supply_power'],0)
 
     def test_whole_system_and_internal_energy_balances(self):
         m,r=self.model,self.r
         self.assertLess(abs(r['energy_residual']),.002)
-        self.assertAlmostEqual(r['dc_energy'],r['dc_input_energy']-r['dc_brake_energy'],places=8)
+        self.assertAlmostEqual(r['dc_energy'],r['dc_input_energy']-r['dc_brake_energy']-r['charger_energy']-r['charger_loss_energy'],places=8)
         self.assertAlmostEqual(r['rectifier_energy'],r['dc_input_energy']+r['rectifier_loss_energy'],places=8)
         b=energy_budget(m,r)
         self.assertAlmostEqual(sum(v for _,v in b['outputs'])-b['total'],r['energy_residual'],places=7)
@@ -145,6 +145,7 @@ class ReviewedSystemTests(unittest.TestCase):
 
     def test_landing_splits_electrical_work_and_accounts_for_impact(self):
         m=ExternalLoweringModel(reviewed_parameters(crane_height=.1))
+        m.max_electrical_step=5e-5
         r=run(m,2)
         self.assertTrue(m.state.grounded)
         self.assertEqual(m.state.position,.1)

@@ -20,7 +20,7 @@ class RectifierTests(unittest.TestCase):
         self.assertEqual(bridge(p,100j,500,True)['current'],0)
 
     def test_dc_discharge_is_analytic_and_cannot_backfeed(self):
-        p = Parameters(initial_flux=0,dc_initial_voltage=500)
+        p = Parameters(initial_flux=0,precharge_voltage=0,dc_initial_voltage=500)
         m = DynamicLoweringModel(p)
         m.rectifier_enabled=True
         m.inverter_enabled=False
