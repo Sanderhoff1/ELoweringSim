@@ -15,7 +15,9 @@ def current(p, voltage, request, reference_axis, machine_export, enabled):
     axis=voltage/amplitude if amplitude>1e-10 else reference_axis
     desired=request/axis
     maximum=math.sqrt(2)*p.inverter_current_limit
-    umax=math.sqrt(2/3)*p.external_supply_voltage
+    # The AC terminal capability comes from the 24 V battery boost stage, not
+    # from an independent 400 V energy source.
+    umax=math.sqrt(2/3)*p.boost_target_voltage
     resistance=p.inverter_output_resistance
     reverse=min(p.exciter_absorption_limit,0.02*max(0.0,machine_export))
     scale=1.5*max(amplitude,1e-10)

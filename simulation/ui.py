@@ -165,8 +165,29 @@ class Application:
             slider.bind('<KeyRelease>',lambda event,k=key:self.apply_converter_setting(k))
             self.live_converter_sliders[key]=(slider,value,title,low,high)
         self.sync_converter_sliders()
-        ttk.Label(controls,text='3. Look for the difference',padding=(0,12,0,5)).pack(anchor='w')
-        ttk.Label(controls,text='Is the field growing or fading?\nAre the capacitors charging?\nIs the load actually slowing down?',wraplength=230).pack(anchor='w')
+        # The Explore tab deliberately exposes only operating choices.  All
+        # engineering limits and the battery/charger data remain in Parameters.
+        for child in controls.winfo_children():
+            child.destroy()
+        ttk.Label(controls, text='MAIN EXPLORE', font=('Segoe UI',12,'bold')).pack(anchor='w')
+        self.excitation_choice=tk.StringVar(value='Exciter only')
+        self.start_choice=tk.StringVar(value='Residual magnetism')
+        ttk.Label(controls,text='Excitation mode').pack(anchor='w',pady=(12,2))
+        mode=ttk.Combobox(controls,textvariable=self.excitation_choice,state='readonly',values=('Exciter only','Capacitor only'))
+        mode.pack(fill='x'); mode.bind('<<ComboboxSelected>>',lambda e:self.apply_topology())
+        ttk.Label(controls,text='Start condition').pack(anchor='w',pady=(12,2))
+        self.main_start=ttk.Combobox(controls,textvariable=self.start_choice,state='readonly',values=('Residual magnetism','External supply'))
+        self.main_start.pack(fill='x'); self.main_start.bind('<<ComboboxSelected>>',lambda e:self.apply_topology())
+        self.main_cap=tk.Scale(controls,from_=0,to=3000,resolution=10,orient='horizontal',label='Capacitance [µF / branch]',command=lambda x:self.apply_main_value('capacitor_capacitance',x))
+        self.main_cap.pack(fill='x')
+        self.main_chopper=tk.Scale(controls,from_=100,to=800,resolution=5,orient='horizontal',label='Chopper setpoint [V DC]',command=lambda x:self.apply_main_value('chopper_threshold',x))
+        self.main_chopper.pack(fill='x')
+        self.main_frequency=tk.Scale(controls,from_=.1,to=100,resolution=.1,orient='horizontal',label='Exciter target frequency [Hz]',command=lambda x:self.apply_main_value('supply_frequency',x))
+        self.main_frequency.pack(fill='x')
+        self.main_cap.set(self.model.parameters.capacitor_capacitance)
+        self.main_chopper.set(self.model.parameters.chopper_threshold)
+        self.main_frequency.set(self.model.parameters.supply_frequency)
+        self.apply_topology()
         ttk.Label(parameter_controls, text="Illustrative inputs — replace with measured values.", wraplength=230).pack(anchor="w", pady=8)
         self.inputs = {}
         self.input_frames = {}
@@ -183,7 +204,7 @@ class Application:
             self.inputs[item.name] = variable
         self.show_parameters()
         ttk.Button(parameter_controls, text="Apply inputs", command=self.apply).pack(fill="x", pady=10)
-        self.message = tk.StringVar(value="Dynamic inputs and circuit connections reset the run. Exciter and brake switches act live.")
+        self.message = tk.StringVar(value="Operating changes reset the run. Engineering settings are in Parameters.")
         ttk.Label(parameter_controls, textvariable=self.message, wraplength=230).pack(anchor="w")
         ttk.Label(controls,textvariable=self.message,wraplength=230,foreground='#666666').pack(anchor='w',pady=12)
         self.view_tabs = ttk.Notebook(body)
@@ -197,9 +218,7 @@ class Application:
         overview.columnconfigure(0, weight=1)
         self.flow_canvas.grid(row=0,column=0,sticky='nsew')
         flow_y = ttk.Scrollbar(overview,orient='vertical',command=self.flow_canvas.yview)
-        flow_y.grid(row=0,column=1,sticky='ns')
         flow_x = ttk.Scrollbar(overview,orient='horizontal',command=self.flow_canvas.xview)
-        flow_x.grid(row=1,column=0,sticky='ew')
         self.flow_canvas.configure(yscrollcommand=flow_y.set,xscrollcommand=flow_x.set)
         self.energy_view = EnergyView(self.flow_canvas,self.toggle_exciter_from_diagram)
         view.rowconfigure(0, weight=1)
@@ -213,6 +232,22 @@ class Application:
         self.canvas.configure(yscrollcommand=vertical.set, xscrollcommand=horizontal.set)
         root.bind_all("<MouseWheel>", self.scroll)
         self.tick()
+
+    def apply_main_value(self, key, value):
+        self.model.parameters=replace(self.model.parameters, **{key:float(value)})
+        self.model.reset(); self.history.clear()
+
+    def apply_topology(self):
+        capacitor=self.excitation_choice.get()=='Capacitor only'
+        self.model.excitation_mode='capacitor' if capacitor else 'exciter'
+        choices=('Residual magnetism','Precharged capacitor bank') if capacitor else ('Residual magnetism','External supply')
+        self.main_start.configure(values=choices)
+        if self.start_choice.get() not in choices: self.start_choice.set(choices[0])
+        self.model.start_mode={'Residual magnetism':'residual','Precharged capacitor bank':'precharged','External supply':'external_supply'}[self.start_choice.get()]
+        self.model.inverter_enabled=not capacitor
+        self.main_cap.configure(state='normal' if capacitor else 'disabled')
+        self.main_frequency.configure(state='disabled' if capacitor else 'normal')
+        self.model.reset(); self.history.clear()
 
     def update_guide(self):
         self.guide.set({
