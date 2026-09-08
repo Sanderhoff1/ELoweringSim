@@ -124,8 +124,14 @@ class EnergyView:
         for i,name in enumerate(names):
             a,b=centers[i]+40,centers[i+1]-40
             line([(a,389),(b,389)],ports[name]['power'])
-            transfer((a+b)/2,282,ports[name])
-            c.create_line(*xy((a+b)/2,347),*xy((a+b)/2,386),fill='#46596f')
+            # The AC BUS to rectifier readout is the block immediately right
+            # of AC BUS.  Put only that block below the component row.
+            transfer((a+b)/2,470 if name=='bus_rectifier' else 282,ports[name])
+            if name=='bus_rectifier':
+                # Keep the moved readout connected to its AC-to-rectifier path.
+                c.create_line(*xy((a+b)/2,412),*xy((a+b)/2,465),fill='#46596f')
+            else:
+                c.create_line(*xy((a+b)/2,347),*xy((a+b)/2,386),fill='#46596f')
             if ports[name]['kind']=='ac':line([(a,410),(b,410)],ports[name]['reactive'],PURPLE,True)
         # Physical state glyphs are embedded in the compact cards.
         y=383+33*math.log1p(max(0,r['position']))/math.log1p(max(p.crane_height,1e-9))

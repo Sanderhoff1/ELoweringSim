@@ -1,5 +1,6 @@
 """Small standard-library UI: canvas animation, input fields, and history."""
 from collections import deque
+import copy
 from dataclasses import fields, replace
 import math
 from pathlib import Path
@@ -47,6 +48,13 @@ class Application:
         self.last_wall = time.perf_counter()
         self.history = deque(maxlen=1500)
         self.sample_steps = 0
+        self.presim_seconds = tk.StringVar(value='10')
+        self.presim_progress = tk.DoubleVar(value=0)
+        self.presim_target = 0.0
+        self.presim_running = False
+        self.presim_frames = []
+        self.presim_index = 0
+        self.presim_wall = 0.0
         source = tk.PhotoImage(file=str(Path(__file__).with_name("assets") / "self_hoisting_crane.png"))
         self.crane_background = source.subsample(3, 3)
         # Playback stays outside both scrolling panes.
@@ -188,6 +196,13 @@ class Application:
         self.main_chopper.set(self.model.parameters.chopper_threshold)
         self.main_frequency.set(self.model.parameters.supply_frequency)
         self.apply_topology()
+        ttk.Label(controls, text='Pre-simulation duration [seconds]').pack(anchor='w', pady=(12, 2))
+        ttk.Entry(controls, textvariable=self.presim_seconds, width=12).pack(fill='x')
+        self.presim_button = ttk.Button(controls, text='Pre-simulate parameters', command=self.pre_simulate)
+        self.presim_button.pack(fill='x', pady=(4, 2))
+        self.presim_bar = ttk.Progressbar(controls, variable=self.presim_progress,
+                                          maximum=100, mode='determinate')
+        self.presim_bar.pack(fill='x')
         ttk.Label(parameter_controls, text="Illustrative inputs — replace with measured values.", wraplength=230).pack(anchor="w", pady=8)
         self.inputs = {}
         self.input_frames = {}
@@ -318,6 +333,8 @@ class Application:
 
     def sync_converter_sliders(self):
         for key,(slider,label,title,low,high) in self.live_converter_sliders.items():
+            if not slider.winfo_exists():
+                continue
             value=getattr(self.model.parameters,key)
             slider.configure(from_=min(low,value),to=max(high,value))
             slider.set(value)
@@ -336,6 +353,11 @@ class Application:
 
     def sync_capacitance_slider(self):
         value = self.model.parameters.capacitor_capacitance
+        if not self.capacitance_slider.winfo_exists():
+            if hasattr(self, 'main_cap') and self.main_cap.winfo_exists():
+                self.main_cap.configure(to=max(3000, value))
+                self.main_cap.set(value)
+            return
         # Preserve larger values entered in Parameters rather than clipping them.
         self.capacitance_slider.configure(to=max(30, value))
         self.capacitance_slider.set(value)
@@ -343,6 +365,8 @@ class Application:
 
     def sync_resistance_slider(self):
         value = self.model.parameters.dc_brake_resistance
+        if not self.resistance_slider.winfo_exists():
+            return
         self.resistance_slider.configure(from_=min(50,value),to=max(2000,value))
         self.resistance_slider.set(value)
         self.resistance_value.set(f'DC brake: {value:g} ohm')
@@ -505,6 +529,17 @@ class Application:
 
     def sync(self):
         now = time.perf_counter()
+        if self.presim_frames and self.playing:
+            self.presim_wall += now - self.last_wall
+            frame_time = self.presim_wall * self.active_speed
+            while (self.presim_index + 1 < len(self.presim_frames)
+                   and self.presim_frames[self.presim_index + 1][0] <= frame_time):
+                self.presim_index += 1
+            if self.presim_index + 1 >= len(self.presim_frames):
+                self.playing = False
+                self.play_button.configure(text='Play')
+            self.last_wall = now
+            return
         if self.playing:
             self.clock.advance(now-self.last_wall, self.active_speed, self.sample,
                                max_steps=(10 if self.model.rectifier_enabled else 50) if self.dynamic_mode.get() else 2000)
@@ -592,10 +627,71 @@ class Application:
 
     def toggle(self):
         self.sync()
+        if self.presim_frames and not self.playing:
+            self.presim_index = 0
+            self.presim_wall = 0.0
+            self.last_wall = time.perf_counter()
         self.playing = not self.playing
         self.play_button.configure(text="Pause" if self.playing else "Play")
 
-    def reset(self):
+    def pre_simulate(self):
+        """Run the selected setup ahead of time, showing progress, then rewind.
+
+        The normal Play button remains the deterministic playback of the same
+        setup; pre-simulation is therefore also a validation pass for inputs.
+        """
+        try:
+            duration = float(self.presim_seconds.get())
+            if not math.isfinite(duration) or duration <= 0:
+                raise ValueError
+        except ValueError:
+            self.message.set('Enter a positive number of seconds.')
+            return
+        if not self.valid_dc_configuration():
+            return
+        self.sync()
+        self.playing = False
+        self.play_button.configure(text='Play')
+        self.reset()
+        self.presim_frames = []
+        self.presim_index = 0
+        self.presim_button.configure(state='disabled')
+        self.presim_progress.set(0)
+        self.presim_target = duration
+        self.presim_running = True
+        self.message.set(f'Pre-simulating 0.0 / {duration:g} seconds...')
+        self.root.after(1, self.pre_simulate_chunk)
+
+    def pre_simulate_chunk(self):
+        if not self.presim_running:
+            return
+        try:
+            # Small batches keep Tk responsive and allow the progress bar to repaint.
+            for _ in range(10):
+                remaining = self.presim_target - self.model.state.time
+                if remaining <= 0 or self.model.state.grounded:
+                    self.presim_running = False
+                    break
+                self.model.step(min(0.002, remaining))
+                if not self.presim_frames or self.model.state.time - self.presim_frames[-1][0] >= 0.02:
+                    self.presim_frames.append((self.model.state.time, copy.deepcopy(self.model), tuple(self.history)))
+        except (ValueError, OverflowError, ZeroDivisionError) as error:
+            self.presim_running = False
+            self.message.set(f'Pre-simulation stopped: {error}')
+        if self.presim_running:
+            progress = min(100.0, 100.0 * self.model.state.time / self.presim_target)
+            self.presim_progress.set(progress)
+            self.message.set(f'Pre-simulating {self.model.state.time:.1f} / {self.presim_target:g} seconds...')
+            self.root.after(1, self.pre_simulate_chunk)
+        else:
+            self.presim_progress.set(100 if self.model.state.time >= self.presim_target else self.presim_progress.get())
+            if self.model.state.time >= self.presim_target:
+                self.message.set(f'Pre-simulation complete ({self.presim_target:g} seconds). Press Play to run it.')
+                self.presim_wall = 0.0
+            self.presim_button.configure(state='normal')
+            self.reset(preserve_presim=True)
+
+    def reset(self, preserve_presim=False):
         if isinstance(self.model,ExternalLoweringModel):
             self.model.startup_enabled=True
         self.model.reset()
@@ -607,6 +703,10 @@ class Application:
         self.history.clear()
         self.sample_steps = 0
         self.last_wall = time.perf_counter()
+        if not preserve_presim:
+            self.presim_frames = []
+            self.presim_index = 0
+            self.presim_wall = 0.0
 
     def tick(self):
         try:
@@ -619,11 +719,15 @@ class Application:
         self.root.after(16, self.tick)
 
     def draw(self):
-        self.released.set(self.model.brake_released)
+        display_model = (self.presim_frames[self.presim_index][1]
+                         if self.presim_frames else self.model)
+        display_history = (self.presim_frames[self.presim_index][2]
+                           if self.presim_frames else self.history)
+        self.released.set(display_model.brake_released)
         if self.view_tabs.index(self.view_tabs.select())==0:
-            self.energy_view.draw(self.model,self.model.readings(),self.history,self.playing)
+            self.energy_view.draw(display_model,display_model.readings(),display_history,self.playing)
             return
-        c, s, r = self.canvas, self.model.state, self.model.readings()
+        c, s, r = self.canvas, display_model.state, display_model.readings()
         c.delete("all")
         # The canvas has a deliberate minimum content width. Smaller windows
         # scroll horizontally instead of collapsing sections onto each other.
