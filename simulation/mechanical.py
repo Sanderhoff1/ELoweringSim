@@ -14,6 +14,9 @@ class State:
     angle: float = 0.0
     omega: float = 0.0
     brake_fraction: float = 1.0
+    brake_command_released: bool = False
+    brake_delay_remaining: float = 0.0
+    brake_motion_target: float = 1.0
     grounded: bool = False
     impact_speed: float = 0.0
     impact_energy: float = 0.0
@@ -36,7 +39,28 @@ class MechanicalModel:
                               self.capacitors_enabled)
 
     def reset(self):
-        self.state = State(brake_fraction=0.0 if self.brake_released else 1.0)
+        target = 0.0 if self.brake_released else 1.0
+        self.state = State(brake_fraction=target,
+                           brake_command_released=self.brake_released,
+                           brake_motion_target=target)
+
+    def _prepare_brake(self, dt):
+        """Advance command delay and return the physical actuator target.
+
+        ``brake_released`` is the controller/operator command.  The stored
+        fraction and motion target are the distinct physical brake state.
+        """
+        p, s = self.parameters, self.state
+        if self.brake_released != s.brake_command_released:
+            s.brake_command_released = self.brake_released
+            s.brake_delay_remaining = (p.brake_release_delay if self.brake_released
+                                       else p.brake_application_delay)
+        if s.brake_delay_remaining > 0:
+            s.brake_delay_remaining = max(0.0, s.brake_delay_remaining-dt)
+            if s.brake_delay_remaining > 0:
+                return s.brake_motion_target
+        s.brake_motion_target = 0.0 if s.brake_command_released else 1.0
+        return s.brake_motion_target
 
     def brake_capacity(self):
         fraction = (0.0 if self.brake_released else 1.0) if self.parameters.brake_response == 0 else self.state.brake_fraction
@@ -68,7 +92,7 @@ class MechanicalModel:
         if not math.isfinite(dt) or dt <= 0:
             raise ValueError("dt must be finite and positive")
         p, s = self.parameters, self.state
-        target = 0.0 if self.brake_released else 1.0
+        target = self._prepare_brake(dt)
         initial = s.brake_fraction
         def fraction(elapsed):
             return target if p.brake_response == 0 else target + (initial-target)*math.exp(-elapsed/p.brake_response)
@@ -150,6 +174,11 @@ class MechanicalModel:
         brake = self.brake_capacity()
         return dict(position=s.position, velocity=velocity, acceleration=acceleration,
                     clearance=max(0.0, p.crane_height-s.position), brake_capacity=brake,
+                    brake_command='RELEASE' if self.brake_released else 'APPLY',
+                    brake_physical_state=('RELEASED' if s.brake_fraction <= 0.01 else
+                                          'APPLIED' if s.brake_fraction >= 0.99 else 'MOVING'),
+                    brake_physically_released=s.brake_fraction <= 0.01,
+                    brake_delay_remaining=s.brake_delay_remaining,
                     angle=s.angle, omega=s.omega, rpm=s.omega*60/(2*math.pi),
                     potential_energy=-p.mass*p.gravity*s.position,
                     kinetic_energy=0.5*(p.inertia+p.mass*p.radius**2)*s.omega**2,

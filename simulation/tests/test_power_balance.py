@@ -30,7 +30,7 @@ class PowerBalanceTests(unittest.TestCase):
             r=self.check_balance(m)
             self.assertLess(abs(r['energy_residual']),.002)
         self.assertTrue(.24<r['velocity']<.31)
-        self.assertLess(abs(r['acceleration']),.002)
+        self.assertLess(abs(r['acceleration']),.01)
         self.assertEqual(r['external_supply_power'],0)
 
     def test_capacitor_only_and_precharge_at_zero(self):

@@ -1,5 +1,11 @@
 # Reviewed external-exciter topology
 
+> Historical baseline: this document describes the earlier external-400-V
+> review. The current finite-battery, dynamic-`C_aux`, reverse-blocking exciter
+> and main-link contactor architecture is specified in
+> [final-topology.md](final-topology.md) and [power-model.md](power-model.md).
+> Numerical results below are retained only for comparison and are not current.
+
 The default UI now represents a small externally supplied flux exciter and a
 separate passive regeneration path. It is not the previous DC-fed regenerative
 VFD model. Earlier modes are retained as **legacy comparisons**, with their

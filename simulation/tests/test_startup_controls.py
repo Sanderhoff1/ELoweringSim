@@ -39,9 +39,10 @@ class StartupControlsTests(unittest.TestCase):
         r=self.balance(m)
         self.assertTrue(r['startup_support'])
         self.assertGreater(r['boost_power'],0)
-        self.assertGreater(r['capacitor_energy'],0)
+        self.assertGreater(r['aux_energy'],0)
+        self.assertEqual(r['capacitor_energy'],0)  # C_aux must become ready first.
         self.assertLess(m.electrical.battery_energy,initial)
-        for _ in range(300):
+        for _ in range(500):
             before=m.readings()['flux_magnitude']
             m.step()
             if m.support_complete:break

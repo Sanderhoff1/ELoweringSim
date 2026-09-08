@@ -4,10 +4,11 @@ import subprocess
 import tkinter as tk
 from pathlib import Path
 from .ui import Application
+from .tk_support import create_root
 
 
 def main():
-    root=tk.Tk()
+    root=create_root()
     app=Application(root)
     root.geometry('1280x850+0+0')
     app.playing=False

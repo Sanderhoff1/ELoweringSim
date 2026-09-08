@@ -1,17 +1,33 @@
-# ELoweringSim - battery excitation and passive generation
+# ELoweringSim - architecture-valid averaged lowering simulator
 
-The default model lowers a 300 kg load through a gear/bearing drivetrain,
-induction generator, averaged passive rectifier, DC link, chopper and resistor.
-A finite 24 V battery powers the flux exciter through an isolated boost stage;
-a separate DC-link charger can replenish the battery. There is no external
-400 V energy supply in this topology.
+The default model is a dynamic, energy-conserving representation of the intended
+hardware architecture. A finite 24 V battery feeds an averaged boost converter,
+a finite auxiliary HV capacitor and a reverse-blocking exciter inverter. The
+induction machine feeds an averaged passive rectifier through an explicit
+precharge/main-contactor arrangement, followed by the main DC capacitor,
+chopper, brake resistor and an optional battery charger.
 
-Run `.\.python\python.exe -m simulation`, select **Exciter only**, then press
-**Play**. Startup establishes the field with the brake held before releasing
-and accelerating the load. The normal example settles near **16.6 m/min**.
-**Capacitor only** disconnects the exciter and exposes residual/precharged
-start conditions. A capacitor-only machine needs motion and suitable initial
-excitation; the toolbar brake control allows a manual release.
+```text
+24 V battery -> boost -> C_aux -> K_EXC / exciter -> AC bus
+load -> gear -> induction machine -> AC bus -> diode bridge
+AC bus <- K_CAP / capacitor bank
+diode bridge -> K_PRECHARGE + R_precharge / K_MAIN -> C_dc
+C_dc -> chopper -> resistor
+C_dc -> charger -> 24 V battery
+```
+
+Run `python -m simulation`, select **Exciter only**, then press **Play**. The
+automatic sequence charges the auxiliary link, builds flux with the brake held,
+commands brake release, ramps electrical frequency, waits for natural generating
+slip, precharges the main DC link, closes the main contactor and regulates energy
+through the chopper/resistor. The estimated 300 kg example reaches about
+**16.7 m/min**; the exact speed is not a hardware prediction.
+
+**Capacitor only** disconnects `K_EXC`. Residual startup releases the brake first
+because a stationary induction machine cannot build voltage from residual flux.
+The precharged-bank case defines the bank as connected to the machine while the
+main rectifier/DC link remains isolated, avoiding an incompatible-voltage
+contactor impulse.
 
 The Energy Flow tab shows the complete main path left to right. Connection
 labels carry live mechanical, AC and DC transfer quantities. Gold particles
@@ -20,17 +36,22 @@ and attached heat/storage branches explain unequal transient powers. Pause
 freezes animation. Parameters include battery current limits, resistance,
 capacity, boost limits and charger limits.
 
+- [Architecture, control states and model boundary](docs/final-topology.md)
 - [Conservation equations and model assumptions](docs/power-model.md)
+- [300 kg startup sequence, sizing peaks and plot](docs/architecture-demo.md)
 - [Component tables at startup, acceleration and steady lowering](docs/power-balance-results.md)
 - [Energy Flow preview](energy-preview.png) and [capacitor preview](docs/capacitor-preview.png)
 - [Full test output](docs/test-results.txt)
 
-Regenerate tables with `.\.python\python.exe -m simulation.power_review` and
-previews with `.\.python\python.exe -m simulation.preview_energy`. The previews
+Regenerate tables with `python -m simulation.power_review`, the startup report
+with `python -m simulation.architecture_demo`, and previews with
+`python -m simulation.preview_energy`. The previews
 render the actual Tk canvas geometry at the normal window size, with the
-sidebar's space reserved, and work without an unlocked desktop.
+sidebar's space reserved, and work without an unlocked desktop. If a sandboxed
+Python exposes `_tkinter` but hides its Tcl/Tk scripts, preview generation stages
+the matching scripts in the ignored `.python/tcl` runtime cache and retries.
 
-Run all tests with ` .\.python\python.exe -m unittest discover -s simulation/tests -v `.
+Run all tests with `python -m unittest discover -s simulation/tests -v`.
 The full dynamic model remains available. A separate conventional equivalent-
 circuit calculator supports fast prescribed operating-point sweeps; it does
 not replace transient startup or self-excitation dynamics.

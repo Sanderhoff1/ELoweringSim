@@ -17,7 +17,7 @@ class EnergyView:
         y=event.y*690/max(1,self.canvas.winfo_height())
         if 710<=x<=830 and 145<=y<=245:
             self.model.charger_enabled=not self.model.charger_enabled
-        elif 380<=x<=480 and 145<=y<=245 and self.model.excitation_mode=='exciter':
+        elif 450<=x<=550 and 145<=y<=245 and self.model.excitation_mode=='exciter':
             self.toggle_exciter()
 
     def draw(self, model, r, history, playing):
@@ -89,36 +89,36 @@ class EnergyView:
         # Auxiliary supply cards and their own short connection lanes.
         card(70,145,'BATTERY',f"{r['battery_soc']:.1f}% SOC",100)
         level(70,190,r['battery_soc']/100,f"{r['battery_remaining_wh']:.1f} Wh")
-        card(270,145,'BOOST','regulated DC',100)
-        level(270,190,ports['boost_exciter']['voltage']/p.boost_target_voltage,f"{ports['boost_exciter']['voltage']:.0f} V")
-        card(430,145,('CAP + START' if r['startup_support'] else 'CAP BANK') if cap else 'EXCITER',f"dE {comp['capacitor']['storage_rate']:+.2g} W" if cap else 'flux control',100)
-        if cap:level(430,190,r['capacitor_energy']/max(1,.5*model.kernel.cac*400**2),f"{r['capacitor_energy']:.2f} J")
+        card(220,145,'BOOST','averaged',90)
+        card(360,145,'AUX HV LINK','C_aux',110)
+        level(360,190,r['aux_voltage']/p.boost_target_voltage,f"{r['aux_voltage']:.0f} V | {r['aux_energy']:.1f} J")
+        card(500,145,('CAP + START' if r['startup_support'] else 'CAP BANK') if cap else 'EXCITER',f"dE {comp['capacitor']['storage_rate']:+.2g} W" if cap else 'flux control',100)
+        if cap:level(500,190,r['capacitor_energy']/max(1,.5*model.kernel.cac*400**2),f"{r['capacitor_energy']:.2f} J")
         else:
-            c.create_rectangle(*xy(380,145),*xy(480,245),fill='',outline='',tags='exciter')
-            text(430,193,f"{r['inverter_current']:.2f} A RMS",12,PURPLE)
+            c.create_rectangle(*xy(450,145),*xy(550,245),fill='',outline='',tags='exciter')
+            text(500,193,f"{r['inverter_current']:.2f} A RMS",12,PURPLE)
         card(770,145,'CHARGER','ON - click' if model.charger_enabled else 'OFF - click',120)
         text(770,191,f"{p.charger_efficiency*100:.0f}% eff.",12)
-        for a,b,name in ((120,220,'battery_boost'),(320,380,'boost_exciter')):
+        for a,b,name in ((120,175,'battery_boost'),(265,305,'boost_aux'),(415,450,'aux_exciter')):
             line([(a,177),(b,177)],ports[name]['power'])
             transfer((a+b)/2,96,ports[name])
-        for x,name in ((70,'battery'),(270,'boost'),(770,'charger')):
+        for x,name in ((70,'battery'),(220,'boost'),(770,'charger')):
             line([(x,245),(x,260)],comp[name]['heat'],HEAT)
             text(x,263,f"{comp[name]['heat']:.1f} W heat",11,HEAT)
         text(750,626,f"Battery {r['battery_voltage']:.2f} V | {r['battery_current']:+.2f} A | {r['battery_power']:+.1f} W",11,MUTED)
         # Excitation connects to the bus in the clear lane between port labels.
         port=ports['aux_bus']
         real=port['power']
-        line([(420,245),(420,350)],real)
-        line([(432,245),(432,350)],port['reactive'],PURPLE,True)
-        transfer(553,180,port)
-        line([(480,195),(490,195)],real)
+        line([(500,245),(500,310),(419,310),(419,350)],real)
+        line([(512,245),(512,322),(431,322),(431,350)],port['reactive'],PURPLE,True)
+        transfer(585,180,port)
         if not cap or r['startup_support']:
-            text(553,248,f"{comp['exciter']['heat']:.1f} W exciter heat",11,HEAT)
-            line([(468,245),(468,253),(490,253)],comp['exciter']['heat'],HEAT)
+            text(590,327,f"{comp['exciter']['heat']:.1f} W exciter heat",11,HEAT)
+            line([(548,245),(560,245),(560,322),(575,322)],comp['exciter']['heat'],HEAT)
         # Entire primary path stays left to right.
         centers=[56+121*i for i in range(8)]
         titles=['LOAD','GEAR /\nBEARINGS','INDUCTION\nMACHINE','AC BUS','RECTIFIER','DC LINK','CHOPPER','BRAKE\nRESISTOR']
-        states=[f"{r['position']:.2f} m",'shaft',f"{r['flux_magnitude']:.2g} Wb",f"{r['bus_frequency']:.1f} Hz",'averaged',f"{r['dc_energy']:.1f} J",f"{r['chopper_duty']*100:.0f}% duty",f"{p.dc_brake_resistance:.0f} ohm"]
+        states=[f"{r['position']:.2f} m",'shaft',f"{r['flux_magnitude']:.2g} Wb",f"{r['bus_frequency']:.1f} Hz",r['main_dc_connection'],f"{r['dc_energy']:.1f} J",f"{r['chopper_duty']*100:.0f}% duty",f"{p.dc_brake_resistance:.0f} ohm"]
         for x,title,state in zip(centers,titles,states):card(x,350,title,state)
         names=['load_gear','gear_machine','machine_bus','bus_rectifier','rectifier_dc','dc_chopper','chopper_resistor']
         for i,name in enumerate(names):

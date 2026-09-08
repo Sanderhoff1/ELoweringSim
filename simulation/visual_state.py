@@ -16,11 +16,13 @@ def energy_budget(model, r):
         inputs=[('Initial system energy',height+model.initial_energy)]
         outputs=[('Height remaining',height+r['potential_energy']),
                  ('Kinetic',r['kinetic_energy']),('Magnetic',r['magnetic_energy']),
-                 ('AC capacitor',r['capacitor_energy']),('DC capacitor',r['dc_energy']),
+                 ('AC capacitor',r['capacitor_energy']),('Aux DC capacitor',r.get('aux_energy',0)),
+                 ('DC capacitor',r['dc_energy']),
                  ('Battery remaining',r['battery_energy']),
                  ('Mechanical heat / impact',model.mechanical_dissipation)]
         for name,key in [('Copper','copper_energy'),('Core','core_energy'),('Exciter','inverter_loss_energy'),
-                         ('Rectifier/source','rectifier_loss_energy'),('Resistor','dc_brake_energy'),
+                         ('Rectifier/source','rectifier_loss_energy'),('DC precharge','dc_precharge_loss_energy'),
+                         ('Resistor','dc_brake_energy'),
                          ('Boost heat','boost_loss_energy'),('Charger','charger_loss_energy'),('Battery heat','battery_loss_energy')]:
             outputs.append((name,r[key]))
         outputs.append(('Precharge heat',model.electrical.precharge_loss_energy))

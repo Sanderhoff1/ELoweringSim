@@ -1,11 +1,11 @@
 # Instantaneous and accumulated conservation
 
-Reviewed against HEAD `3b290f5ef650abb53bc0a31faca7201975731b84`.
 The running topology is `ExternalLoweringModel` (the historical class name is
-retained for compatibility). Work was resumed against saved HEAD
-`2346b9ffb7ca7800a2ef295206e58a9ada7f622c`. Its only energy inputs are initial stored energy
-and decreasing load height. `external_supply_voltage` is a legacy parameter
-and cannot supply this model.
+retained for compatibility). The supplied checkout does not contain Git metadata;
+the earlier documented baseline was `3b290f5ef650abb53bc0a31faca7201975731b84`.
+The model's only energy inputs are finite battery energy, explicit initial stored
+energy and decreasing load height. `external_supply_voltage` is a legacy
+parameter and cannot supply this model.
 
 Each entry in `readings()['power_diagnostics']['components']` exposes `input`,
 `output`, `heat`, `storage_rate`, `energy`, and an independently evaluated
@@ -28,11 +28,13 @@ For peak alpha-beta phasors, `S = 3/2 v conjugate(i) = P + jQ`.
 | Induction machine | -T_em omega | -Re(S_machine) | stator copper + rotor copper + core | magnetic derivative below |
 | AC bus | P_machine + P_exciter | P_rectifier + P_capacitor | 0 | 0 |
 | Capacitor bank | P_capacitor | 0 | 0 | 3/2 C_ac Re(conj(v) dv/dt) |
-| Rectifier / source impedance | P_ac | V_dc I_rect | P_ac - V_dc I_rect | 0 |
+| Rectifier / source impedance | P_ac | V_dc I_rect + P_precharge | P_bridge_loss | 0 |
+| Main-link precharge resistor | V_dc I_rect + P_precharge | V_dc I_rect | P_precharge | 0 |
 | DC link | V_dc I_rect | P_chopper + P_charger | 0 | C_dc V_dc dV_dc/dt |
 | Ideal averaged chopper | duty V_dc²/R_brake | same | 0 | 0 |
 | Brake resistor | duty V_dc²/R_brake | 0 | same | 0 |
-| Exciter | P_boost,out | Re(S_exciter) | 3/2 R_out abs(i_exciter)² + idle + max(0,-P_exciter) | 0 |
+| Exciter | P_aux,out | Re(S_exciter) | 3/2 R_conduction abs(i_exciter)² + idle | 0 |
+| Auxiliary HV link | P_boost,out | P_aux,out | 0 | C_aux V_aux dV_aux/dt |
 | Boost | P_battery,to_boost | efficiency times input | input minus output | 0 |
 | Charger | P_dc,to_charger | efficiency times input | input minus output | 0 |
 | Battery | P_charger,out | P_boost,in | R_battery I_battery² | -V_oc I_battery |
@@ -50,6 +52,7 @@ E_mag = 3/4 (L_ls |i_s|² + L_lr |i_r|²)
       + 3/2 (|psi_m|²/(2 L_m) + |psi_m|⁴/(4 L_m psi_sat²))
 dE_mag/dt = 3/2 Re(conj(i_s) dpsi_s/dt + conj(i_r) dpsi_r/dt)
 E_ac = 3/4 C_ac |v|², C_ac = 3 C_delta
+E_aux = 1/2 C_aux V_aux²
 E_dc = 1/2 C_dc V_dc²
 ```
 
@@ -67,16 +70,23 @@ current limiting can change field phase without destabilizing the controller.
 
 Every integration stage solves the two real equations
 `i_exciter = i_stator + v/R_core + i_rectifier` for terminal voltage.
-The current evaluator applies RMS current, AC active power, reverse absorption,
-boost input/output power, and modulation capability limits *inside* that solve.
+The current evaluator applies total RMS current, reactive-component current,
+nonnegative AC active current, state-dependent active-power, auxiliary-energy,
+and modulation-capability limits *inside* that solve.
 Terminal voltage is not integrated from an unlimited requested derivative.
-If a feasible conducting converter point cannot be found, the exciter blocks
-and the passive core/bridge network determines voltage and absorbs the winding
-energy. The KCL residual remains visible in diagnostics.
+Generated real power therefore cannot enter the exciter. The field-building
+active-power limit permits magnetic buildup and loss supply; the lower run limit
+prevents intentional material motoring after brake release.
+
+The common solve path uses bounded continuation/Newton steps. Multiple physical
+seeds and a bounded derivative-free fallback handle clipped limit boundaries.
+A recognized no-conducting-equilibrium limit condition is reported as
+`PHYSICALLY_INFEASIBLE_BLOCKED`; an unresolved numerical failure raises
+`ExciterSolverError` instead of being silently interpreted as converter behavior.
 
 The balanced inverter's linear modulation ceiling is
-`abs(v + R_out i_exciter) <= V_boost / sqrt(3)`. The normal example now uses a
-600 V auxiliary boost output; 520 V did not provide linear modulation headroom
+`abs(v + R_virtual i_exciter) <= V_aux / sqrt(3)`. The normal example uses a
+600 V auxiliary-link target; 520 V did not provide linear modulation headroom
 for the normal field plus winding/output voltage drops. This auxiliary output
 is separate from the approximately 524 V brake DC link. Its current ceiling is
 `P_boost,out / V_boost <= boost_output_current_limit`.
@@ -97,23 +107,33 @@ charge and falls on discharge; internal heat is always nonnegative.
 Boost input is bounded by discharge current, the battery's maximum-power point,
 remaining chemical energy over the integration step, converter input power,
 efficiency, and high-voltage output current. Limiting occurs before electrical
-integration. The charger limits *net battery charge current* and chemical
+integration. The high-side current command has finite response. Its midpoint
+power charges `C_aux`; inverter DC input discharges it. A bounded discrete-energy
+solve handles startup from exactly zero volts without a hidden source.
+The charger limits *net battery charge current* and chemical
 headroom, while allowing simultaneous boost use. SOC is not clipped after
 integration to hide missing energy.
 
 ## Reset, integration and limitations
 
-Precharge is an explicit initialization transfer, not a time-resolved switching
-sequence. AC energy is `1/2 C_ac V_LL²`, bounded by finite battery energy and the
-boost voltage capability. Battery removal is `E_ac / precharge_efficiency`;
-the difference is accumulated precharge heat. The initial-energy reference is
-the post-transfer inventory **plus that heat**, giving zero reset residual.
-The configured precharge efficiency represents the complete initialization
-transfer; no instantaneous precharge current is claimed at t=0.
+Capacitor-bank precharge is an explicit initialization transfer with `K_CAP`
+already connecting the bank to the machine and the main rectifier path isolated.
+AC energy is `1/2 C_ac V_LL²`, bounded by finite battery energy and boost voltage
+capability. Battery removal is `E_ac / precharge_efficiency`; the difference is
+accumulated initialization heat. No incompatible charged capacitors are switched
+together at reset.
+
+Main DC-link precharge is dynamic. `K_PRECHARGE` closes from terminal-power and
+AC-voltage readiness measurements after brake release; it does not use rotor
+speed or internal electromagnetic torque. `R_precharge` limits charging of
+`C_dc`. `K_MAIN` bypasses
+the resistor at the configured voltage fraction. Bridge/source loss and
+precharge-resistor loss are distinct accumulated sinks.
 
 The accumulated residual is current height + kinetic + magnetic + AC capacitor
-+ DC capacitor + battery energy, minus initial inventory, plus every accumulated
-heat term (including battery I²R, precharge and impact). No Q appears in it.
++ auxiliary capacitor + main DC capacitor + battery energy, minus initial
+inventory, plus every accumulated heat term (including battery I²R, both
+precharge losses and impact). No Q appears in it.
 RK steps reject/subdivide when their AC/magnetic energy change disagrees with
 integrated physical work. This resolves stiff winding decay after converter
 blocking; it does not correct the state energy cosmetically.
@@ -124,7 +144,8 @@ voltages. `Pac - Pdc` is **rectifier/source loss**, because the configured
 resistance includes source impedance as well as the bridge.
 
 Run `python -m simulation.power_review` for component tables at reset, startup,
-acceleration and steady lowering, plus capacitor-only snapshots. Run
+acceleration and steady lowering. Run `python -m simulation.architecture_demo`
+for the full sequence, sizing peaks, CSV and SVG plot. Run
 `python -m simulation.preview_energy` for previews rendered from the actual Tk
 canvas geometry at the normal application size with its sidebar present.
 
