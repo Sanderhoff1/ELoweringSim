@@ -1,4 +1,4 @@
-"""Reviewed topology: external small exciter -> stator -> passive bridge -> DC brake.
+"""Finite battery/boost topology: small exciter -> stator -> passive bridge -> DC brake.
 
 Full stationary alpha-beta flux dynamics are retained. DC storage is ENERGY;
 negative trial energy rejects/subdivides a step, never clips away energy.
@@ -195,6 +195,7 @@ class ExternalLoweringModel(MechanicalModel):
         self.start_mode='residual'           # residual, external_supply, precharged
         self.capacitors_enabled=False
         self.startup_enabled=True
+        self.charger_enabled=True
         self.max_electrical_step=0.0001
         self.kernel=Kernel(self.parameters)
         self.reset()
@@ -221,12 +222,22 @@ class ExternalLoweringModel(MechanicalModel):
         self.electrical=ElectricalState(complex(flux),complex(flux),complex(math.sqrt(2/3)*precharge),
             .5*self.kernel.cdc*p.dc_initial_voltage**2,self.kernel.cdc,battery_energy=battery,
             precharge_loss_energy=max(0.0,drawn-cap_energy))
+        self.support_complete=False
+        self.support_qualified_time=0.0
         self.qualified_time=0.0
         self.release_time=None
         self.startup_status='MAGNETIZING' if self.startup_enabled else 'MANUAL'
         self.gear_energy=self.drivetrain_energy=self.brake_energy=self.friction_energy=0.0
         self.initial_energy=self.total_energy()+self.electrical.precharge_loss_energy
         self.rejected_steps=0
+
+    def startup_support_active(self):
+        return (self.excitation_mode=='capacitor' and self.start_mode=='external_supply'
+                and not self.support_complete)
+
+    def excitation_active(self):
+        return (self.inverter_enabled and self.electrical.battery_energy>0
+                and (self.excitation_mode=='exciter' or self.startup_support_active()))
 
     @property
     def mechanical_dissipation(self):
@@ -255,6 +266,11 @@ class ExternalLoweringModel(MechanicalModel):
             raise ValueError('Capacitor-only mode requires positive capacitance')
         if not self.motor_connected or not self.rectifier_enabled:
             raise ValueError('Reviewed topology requires the machine and passive rectifier connected')
+        if self.startup_support_active():
+            field=abs(self.kernel.currents(self.electrical.stator_flux,self.electrical.rotor_flux)[2])
+            self.support_qualified_time=(self.support_qualified_time+dt if field>=p.startup_flux_fraction*p.exciter_flux_target else 0.)
+            if self.support_qualified_time>=p.startup_dwell:
+                self.support_complete=True
         if self.startup_enabled and self.release_time is None:
             flux=abs(self.kernel.currents(self.electrical.stator_flux,self.electrical.rotor_flux)[2])
             field_available=(self.excitation_mode=='exciter' and self.inverter_enabled) or self.excitation_mode=='capacitor'
@@ -294,7 +310,7 @@ class ExternalLoweringModel(MechanicalModel):
         y=(e.stator_flux,e.rotor_flux,e.voltage)
         phase=e.phase
         w=2*math.pi*frequency
-        exciter_on=(self.excitation_mode=='exciter' and self.inverter_enabled and e.battery_energy>0)
+        exciter_on=self.excitation_active()
         k.supply_limit=boost_limit(p,e.battery_energy,h)
         args=(frequency,midomega,vdc,exciter_on,self.motor_connected,self.excitation_mode=='capacitor')
         a=k.rate(y,phase,*args)
@@ -305,7 +321,7 @@ class ExternalLoweringModel(MechanicalModel):
         dc_heat=duty*vdc*vdc/p.dc_brake_resistance
         # Main DC link may recharge the auxiliary battery.  This is an
         # isolated averaged charger: it cannot reverse or charge past 100%.
-        aux=paths(p,e.battery_energy,average(6),vdc,h)
+        aux=paths(p,e.battery_energy,average(6),vdc,h,self.charger_enabled)
         charger_in,charger_out=aux['charger_input'],aux['charger_output']
         next_energy=e.dc_energy+h*(average(11)-dc_heat-charger_in)
         values=tuple(y[i]+h*average(i) for i in range(3))
@@ -402,7 +418,7 @@ class ExternalLoweringModel(MechanicalModel):
             self.kernel=Kernel(self.parameters)
         p,s,e,k=self.parameters,self.state,self.electrical,self.kernel
         omega=s.omega if omega is None else omega
-        exciter_on=(self.excitation_mode=='exciter' and self.inverter_enabled and e.battery_energy>0)
+        exciter_on=self.excitation_active()
         r=k.rate((e.stator_flux,e.rotor_flux,e.voltage),e.phase,self.frequency(),omega,e.dc_voltage,exciter_on,self.motor_connected,self.excitation_mode=='capacitor')
         v=r.terminal
         total_current=r.winding_current+(v*k.gc if self.motor_connected else 0j)
@@ -415,7 +431,7 @@ class ExternalLoweringModel(MechanicalModel):
             df=((p.supply_frequency-p.startup_frequency)/p.startup_ramp
                 if self.startup_enabled and self.release_time is not None and 0<=s.time-self.release_time<p.startup_ramp else 0.)
             domega=0. if s.grounded else (self._drive(r.torque)-p.damping*omega)/(p.inertia+p.mass*p.radius**2)
-            aux_probe=paths(p,e.battery_energy,r.supply,e.dc_voltage,self.max_electrical_step)
+            aux_probe=paths(p,e.battery_energy,r.supply,e.dc_voltage,self.max_electrical_step,self.charger_enabled)
             dvdc=(r.dc_input-e.chopper_duty*e.dc_voltage**2/p.dc_brake_resistance-aux_probe['charger_input'])/(k.cdc*e.dc_voltage) if e.dc_voltage>1e-5 else 0.
             probe=k.rate((e.stator_flux+eps*r.ps,e.rotor_flux+eps*r.pr,v),e.phase+eps*2*math.pi*self.frequency(),
                 self.frequency()+eps*df,omega+eps*domega,max(0.,e.dc_voltage+eps*dvdc),exciter_on,True,False)
@@ -425,10 +441,11 @@ class ExternalLoweringModel(MechanicalModel):
         valid=abs(sync)>1e-3
         duty=e.chopper_duty
         battery_capacity=p.battery_capacity_wh*3600
-        aux=paths(p,e.battery_energy,r.supply,e.dc_voltage,self.max_electrical_step)
+        aux=paths(p,e.battery_energy,r.supply,e.dc_voltage,self.max_electrical_step,self.charger_enabled)
         battery_power=aux['power']
         return dict(external_exciter=False,dc_exciter=False,boost_enabled=exciter_on,boost_status='SUPPLYING EXCITER' if exciter_on else 'OFF',
             excitation_mode=self.excitation_mode,start_mode=self.start_mode,
+            startup_support=self.startup_support_active(),support_complete=self.support_complete,charger_enabled=self.charger_enabled,flux_angle=cmath.phase(r.flux),
             startup_status=self.startup_status,external_supply_power=0.0,core_loss=r.core,core_energy=e.core_energy,
             gear_energy=self.gear_energy,drivetrain_energy=self.drivetrain_energy,brake_energy=self.brake_energy,friction_energy=self.friction_energy,
             line_voltage=math.sqrt(1.5)*abs(v),bus_frequency=busfreq,
@@ -438,7 +455,7 @@ class ExternalLoweringModel(MechanicalModel):
             stator_loss=1.5*p.stator_resistance*abs(r.winding_current)**2,rotor_loss=r.copper-1.5*p.stator_resistance*abs(r.winding_current)**2,
             machine_line_current=abs(total_current)/math.sqrt(2),machine_reactive_demand=power.imag,
             inverter_current=abs(r.exciter)/math.sqrt(2),inverter_real_power=supply_ac.real,inverter_reactive_supply=supply_ac.imag,
-            inverter_status='DISCONNECTED' if self.excitation_mode=='capacitor' else 'BATTERY EMPTY / OFF' if not exciter_on else 'SMALL EXCITER LIMIT' if r.limited else 'FLUX CONTROL',
+            inverter_status='STARTUP SUPPORT' if self.startup_support_active() and exciter_on else 'DISCONNECTED' if self.excitation_mode=='capacitor' else 'BATTERY EMPTY / OFF' if not exciter_on else 'SMALL EXCITER LIMIT' if r.limited else 'FLUX CONTROL',
             inverter_loss=r.converter_loss,inverter_loss_energy=e.inverter_loss_energy,inverter_dc_power=0,
             capacitor_reactive_supply=-1.5*(v*(k.cac*r.voltage).conjugate()).imag if self.excitation_mode=='capacitor' else 0.0,
             capacitor_line_current=abs(k.cac*r.voltage)/math.sqrt(2) if self.excitation_mode=='capacitor' else 0.0,

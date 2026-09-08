@@ -10,6 +10,12 @@ class PowerBalanceTests(unittest.TestCase):
         d=r['power_diagnostics']
         self.assertLess(abs(d['kcl']),2e-8)
         self.assertLess(abs(d['reactive_residual']),2e-5)
+        port=d['connections']['exciter_bus']
+        if port['current']>1e-6:
+            internal_squared=(2/3*port['voltage']**2+2*m.parameters.inverter_output_resistance**2*port['current']**2
+                              +4/3*m.parameters.inverter_output_resistance*port['power'])
+            self.assertLessEqual(internal_squared,m.parameters.boost_target_voltage**2/3+1e-4)
+
         for name,c in d['components'].items():
             self.assertLess(abs(c['residual']),2e-5,name)
         self.assertLess(abs(r['battery_current']),max(m.parameters.battery_charge_current_limit,m.parameters.battery_discharge_current_limit)+1e-8)
@@ -34,7 +40,7 @@ class PowerBalanceTests(unittest.TestCase):
         self.assertLess(abs(r['energy_residual']),1e-9)
         initial_battery=m.parameters.battery_capacity_wh*3600
         self.assertAlmostEqual(initial_battery-m.electrical.battery_energy,r['capacitor_energy']+m.electrical.precharge_loss_energy,places=8)
-        for target in (.01,.1,.5):
+        for target in (.01,.1,.5,3.):
             while m.state.time<target-1e-9:m.step()
             r=self.check_balance(m)
             self.assertLess(abs(r['energy_residual']),.01)
@@ -57,6 +63,17 @@ class PowerBalanceTests(unittest.TestCase):
             self.assertLessEqual(r['battery_current'],m.parameters.battery_discharge_current_limit+1e-8)
             self.assertLess(abs(r['energy_residual']),.002)
             self.assertIsNone(m.release_time)
+
+    def test_absorbing_power_limit_respects_voltage_capability(self):
+        from simulation.external_exciter import current
+        p=reviewed_parameters()
+        ceiling=p.boost_target_voltage/math.sqrt(3)
+        voltage=complex(ceiling+.03)
+        i,supply,heat,limited=current(p,voltage,-1+3j,1j,700,True,4.)
+        self.assertTrue(limited)
+        self.assertEqual(i,0j)  # Blocking is required at this infeasible point.
+        self.assertLessEqual(supply,4.)
+        self.assertAlmostEqual(supply,1.5*(voltage*i.conjugate()).real+heat)
 
     def test_charge_discharge_limits_and_storage(self):
         p=reviewed_parameters(battery_charge_current_limit=.1,battery_discharge_current_limit=.2)

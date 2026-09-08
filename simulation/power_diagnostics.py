@@ -35,7 +35,7 @@ def dc(v,power):
 def diagnostics(model,r):
     p,s,e,k=model.parameters,model.state,model.electrical,model.kernel
     cap=model.excitation_mode=='capacitor'
-    enabled=not cap and model.inverter_enabled and e.battery_energy>0
+    enabled=model.excitation_active()
     rate=k.rate((e.stator_flux,e.rotor_flux,e.voltage),e.phase,model.frequency(),s.omega,e.dc_voltage,enabled,True,cap)
     v=rate.terminal
     is_,ir,_=k.currents(e.stator_flux,e.rotor_flux)
@@ -45,7 +45,7 @@ def diagnostics(model,r):
     capacitor=ac(v,ic)
     ib=2*rate.rectifier*v/(3*abs(v)**2) if abs(v)>1e-12 else 0j
     bridge=ac(v,ib,True)
-    aux=paths(p,e.battery_energy,rate.supply,e.dc_voltage,model.max_electrical_step)
+    aux=paths(p,e.battery_energy,rate.supply,e.dc_voltage,model.max_electrical_step,model.charger_enabled)
     shaft=-rate.torque*s.omega
     gravity=r['gravity_power']
     gear=r['gear_power']+r['drivetrain_power']+r['brake_power']+r['friction_power']
@@ -72,12 +72,12 @@ def diagnostics(model,r):
     ports={
         'load_gear':dict(kind='linear',force=p.mass*p.gravity,velocity=r['velocity'],power=gravity,direction=sign(gravity)),
         'gear_machine':dict(kind='shaft',torque=-rate.torque,rpm=r['rpm'],power=shaft,direction=sign(shaft)),
-        'machine_bus':machine,'exciter_bus':exciter,'bus_capacitor':capacitor,'bus_rectifier':bridge,
+        'aux_bus':ac(v,rate.exciter-ic),'machine_bus':machine,'exciter_bus':exciter,'bus_capacitor':capacitor,'bus_rectifier':bridge,
         'rectifier_dc':dc(e.dc_voltage,rate.dc_input),'dc_chopper':dc(e.dc_voltage,dc_heat),
         'chopper_resistor':dc(e.dc_voltage,dc_heat),'dc_charger':dc(e.dc_voltage,aux['charger_input']),
         'charger_battery':dc(aux['voltage'],aux['charger_output']),
         'battery_boost':dc(aux['voltage'],aux['boost_input']),
-        'boost_exciter':dc(p.boost_target_voltage,aux['boost_output']),
+        'boost_exciter':dc(p.boost_target_voltage if enabled and rate.supply>0 else 0.,aux['boost_output']),
         'battery_terminal':dc(aux['voltage'],aux['power']),
     }
     mismatch=rate.exciter-is_-v*k.gc-ib-ic

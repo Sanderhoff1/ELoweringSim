@@ -1,27 +1,34 @@
-# ELoweringSim — external flux exciter and passive generation
+# ELoweringSim - battery excitation and passive generation
 
-The default **External 400 V · reviewed** model has a small externally powered
-flux exciter, an induction generator, a passive capacitor-input rectifier, and
-a DC-link chopper/brake resistor. Generated load power cannot regenerate through
-the exciter's external supply. This replaces the former DC-fed VFD topology as
-the default; modes 5–7 remain explicitly labeled legacy comparisons.
+The default model lowers a 300 kg load through a gear/bearing drivetrain,
+induction generator, averaged passive rectifier, DC link, chopper and resistor.
+A finite 24 V battery powers the flux exciter through an isolated boost stage;
+a separate DC-link charger can replenish the battery. There is no external
+400 V energy supply in this topology.
 
-Run ` .\.python\python.exe -m simulation `, choose **External startup**, and press
-**Start / restart this example**. It starts at rest, with zero magnetic seed and
-empty AC/DC capacitors. The sequencer establishes flux with the brake held,
-qualifies it, releases the brake, and ramps field frequency. The estimated
-0.9 kW / four-pole / 300 kg / 200 m example approaches **16.2 m/min**.
+Run `.\.python\python.exe -m simulation`, select **Exciter only**, then press
+**Play**. Startup establishes the field with the brake held before releasing
+and accelerating the load. The normal example settles near **16.6 m/min**.
+**Capacitor only** disconnects the exciter and exposes residual/precharged
+start conditions. A capacitor-only machine needs motion and suitable initial
+excitation; the toolbar brake control allows a manual release.
 
-The Energy flow page includes the separate 400 V source, exciter active/reactive
-power, passive bridge/DC/brake power, startup status, and separate energy bars
-for copper, core, gearbox, bearings, mechanical brake, and converter losses.
-Exciter and chopper switches act live; capacitance changes reset the run.
-The brake checkbox overrides automatic startup; Reset restores the sequencer.
+The Energy Flow tab shows the complete main path left to right. Connection
+labels carry live mechanical, AC and DC transfer quantities. Gold particles
+follow signed real power, purple particles oscillate for reactive exchange,
+and attached heat/storage branches explain unequal transient powers. Pause
+freezes animation. Parameters include battery current limits, resistance,
+capacity, boost limits and charger limits.
 
-See [the implementation and validation report](docs/reviewed-topology.md) for
-equations, assumptions, changed files, test results, and runtime measurements.
-[Machine-readable results](docs/review-results.json) are reproducible with
-` .\.python\python.exe -m simulation.review_report `.
+- [Conservation equations and model assumptions](docs/power-model.md)
+- [Component tables at startup, acceleration and steady lowering](docs/power-balance-results.md)
+- [Energy Flow preview](energy-preview.png) and [capacitor preview](docs/capacitor-preview.png)
+- [Full test output](docs/test-results.txt)
+
+Regenerate tables with `.\.python\python.exe -m simulation.power_review` and
+previews with `.\.python\python.exe -m simulation.preview_energy`. The previews
+render the actual Tk canvas geometry at the normal window size, with the
+sidebar's space reserved, and work without an unlocked desktop.
 
 Run all tests with ` .\.python\python.exe -m unittest discover -s simulation/tests -v `.
 The full dynamic model remains available. A separate conventional equivalent-

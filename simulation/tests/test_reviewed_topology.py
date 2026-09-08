@@ -123,7 +123,10 @@ class ReviewedSystemTests(unittest.TestCase):
         for key,tolerance in (('velocity',.001),('dc_voltage',.5),('flux_magnitude',.003)):
             self.assertLess(abs(results[0][key]-results[2][key]),tolerance,key)
             self.assertLessEqual(abs(results[1][key]-results[2][key]),abs(results[0][key]-results[2][key])+1e-8,key)
-        self.assertLess(abs(results[-1]['energy_residual']),abs(results[0]['energy_residual'])+1e-6)
+        # Adaptive energy rejection and subtraction of the 1.728 MJ battery
+        # inventory make microjoule residuals non-monotone. State convergence
+        # above remains required; every run must conserve independently.
+        self.assertLess(max(abs(row['energy_residual']) for row in results),1e-5)
 
     def test_different_loads_use_passive_path(self):
         for mass in (200,400):

@@ -97,10 +97,6 @@ class Application:
         mode_selector.pack(fill='x',pady=8)
         mode_selector.bind('<<ComboboxSelected>>',lambda event:self.change_power_stage())
         ttk.Label(controls,text='Default: 24 V battery / boost exciter, passive rectifier, DC brake. Modes 5–7 are legacy comparisons.',wraplength=230).pack(anchor='w')
-        self.excitation_choice=tk.StringVar(value='Exciter only')
-        excitation_selector=ttk.Combobox(controls,textvariable=self.excitation_choice,state='readonly',values=('Exciter only','Capacitor only'))
-        excitation_selector.pack(fill='x',pady=4)
-        excitation_selector.bind('<<ComboboxSelected>>',lambda event:self.choose_excitation())
         self.dynamic_mode = tk.BooleanVar(value=True)
         ttk.Checkbutton(parameter_controls, text="Dynamic flux / capacitor model", variable=self.dynamic_mode, command=self.change_model).pack(anchor="w", pady=6)
         ttk.Label(controls,text='1. Choose an example',padding=(0,12,0,5)).pack(anchor='w')
@@ -180,7 +176,7 @@ class Application:
         mode=ttk.Combobox(controls,textvariable=self.excitation_choice,state='readonly',values=('Exciter only','Capacitor only'))
         mode.pack(fill='x'); mode.bind('<<ComboboxSelected>>',lambda e:self.apply_topology())
         ttk.Label(controls,text='Start condition').pack(anchor='w',pady=(12,2))
-        self.main_start=ttk.Combobox(controls,textvariable=self.start_choice,state='readonly',values=('Residual magnetism','External supply'))
+        self.main_start=ttk.Combobox(controls,textvariable=self.start_choice,state='readonly',values=('Residual magnetism','Battery excitation'))
         self.main_start.pack(fill='x'); self.main_start.bind('<<ComboboxSelected>>',lambda e:self.apply_topology())
         self.main_cap=tk.Scale(controls,from_=0,to=3000,resolution=10,orient='horizontal',label='Capacitance [µF / branch]',command=lambda x:self.apply_main_value('capacitor_capacitance',x))
         self.main_cap.pack(fill='x')
@@ -221,9 +217,6 @@ class Application:
         overview.rowconfigure(0, weight=1)
         overview.columnconfigure(0, weight=1)
         self.flow_canvas.grid(row=0,column=0,sticky='nsew')
-        flow_y = ttk.Scrollbar(overview,orient='vertical',command=self.flow_canvas.yview)
-        flow_x = ttk.Scrollbar(overview,orient='horizontal',command=self.flow_canvas.xview)
-        self.flow_canvas.configure(yscrollcommand=flow_y.set,xscrollcommand=flow_x.set)
         self.energy_view = EnergyView(self.flow_canvas,self.toggle_exciter_from_diagram)
         view.rowconfigure(0, weight=1)
         view.columnconfigure(0, weight=1)
@@ -244,11 +237,17 @@ class Application:
     def apply_topology(self):
         capacitor=self.excitation_choice.get()=='Capacitor only'
         self.model.excitation_mode='capacitor' if capacitor else 'exciter'
-        choices=('Residual magnetism','Precharged capacitor bank') if capacitor else ('Residual magnetism','External supply')
+        choices=('Residual magnetism','Battery excitation','Precharged capacitor bank','Zero flux') if capacitor else ('Residual magnetism','Battery excitation','Zero flux')
         self.main_start.configure(values=choices)
         if self.start_choice.get() not in choices: self.start_choice.set(choices[0])
-        self.model.start_mode={'Residual magnetism':'residual','Precharged capacitor bank':'precharged','External supply':'external_supply'}[self.start_choice.get()]
-        self.model.inverter_enabled=not capacitor
+        self.model.start_mode={'Residual magnetism':'residual','Precharged capacitor bank':'precharged','Battery excitation':'external_supply','Zero flux':'zero'}[self.start_choice.get()]
+        if self.model.start_mode=='precharged' and self.model.parameters.precharge_voltage==0:
+            self.model.parameters=replace(self.model.parameters,precharge_voltage=200)
+            if hasattr(self,'inputs'): self.inputs['precharge_voltage'].set('200')
+        if self.model.start_mode=='residual' and self.model.parameters.initial_flux==0:
+            self.model.parameters=replace(self.model.parameters,initial_flux=.005)
+            if hasattr(self,'inputs'): self.inputs['initial_flux'].set('.005')
+        self.model.inverter_enabled=not capacitor or self.model.start_mode=='external_supply'
         self.main_cap.configure(state='normal' if capacitor else 'disabled')
         self.main_frequency.configure(state='disabled' if capacitor else 'normal')
         self.model.reset(); self.history.clear()
@@ -557,25 +556,10 @@ class Application:
         self.sync()
         self.model.inverter_enabled = self.excited.get()
 
-    def choose_excitation(self):
-        if not isinstance(self.model,ExternalLoweringModel):
-            self.message.set('Select Battery exciter topology first.')
-            return
-        cap=self.excitation_choice.get()=='Capacitor only'
-        if cap and self.model.parameters.capacitor_capacitance<=0:
-            self.excitation_choice.set('Exciter only')
-            self.message.set('Set positive bank capacitance before selecting capacitor mode.')
-            return
-        self.model.excitation_mode='capacitor' if cap else 'exciter'
-        self.capacitors.set(cap)
-        self.model.start_mode='precharged' if cap and self.model.parameters.precharge_voltage>0 else 'residual'
-        self.reset()
-        self.message.set('Excitation mode changed; reset with consistent stored energy.')
-
     def connect_capacitors(self):
         if isinstance(self.model,ExternalLoweringModel):
             self.excitation_choice.set('Capacitor only' if self.capacitors.get() else 'Exciter only')
-            self.choose_excitation()
+            self.apply_topology()
             return
         if not self.valid_dc_configuration():
             self.capacitors.set(self.model.capacitors_enabled)

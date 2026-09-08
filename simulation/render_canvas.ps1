@@ -1,11 +1,12 @@
 param([string]$OutputPath='energy-preview.png')
 Add-Type -AssemblyName System.Drawing
 $data=Get-Content -LiteralPath 'docs/energy-canvas.json' -Raw | ConvertFrom-Json
-$bitmap=New-Object System.Drawing.Bitmap($data.width,$data.height)
+$bitmap=New-Object System.Drawing.Bitmap(($data.width*2),($data.height*2))
 $g=[System.Drawing.Graphics]::FromImage($bitmap)
 $g.Clear([System.Drawing.ColorTranslator]::FromHtml('#101b2c'))
+$g.ScaleTransform(2,2)
 $g.SmoothingMode=[System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
-$g.TextRenderingHint=[System.Drawing.Text.TextRenderingHint]::AntiAliasGridFit
+$g.TextRenderingHint=[System.Drawing.Text.TextRenderingHint]::AntiAlias
 foreach($item in $data.items){
     $a=$item.coords
     $brush=New-Object System.Drawing.SolidBrush([System.Drawing.ColorTranslator]::FromHtml($(if($item.fill){$item.fill}else{'#101b2c'})))
@@ -15,8 +16,9 @@ foreach($item in $data.items){
         $font=New-Object System.Drawing.Font('Segoe UI',$size,[System.Drawing.FontStyle]::Regular,[System.Drawing.GraphicsUnit]::Pixel)
         $format=[System.Drawing.StringFormat]::GenericTypographic.Clone()
         $format.Alignment=[System.Drawing.StringAlignment]::Center
-        $rect=New-Object System.Drawing.RectangleF([single]$item.bbox[0],[single]$item.bbox[1],[single]($item.bbox[2]-$item.bbox[0]),[single]($item.bbox[3]-$item.bbox[1]+5))
+        $rect=New-Object System.Drawing.RectangleF([single]($item.bbox[0]-4),[single]$item.bbox[1],[single]($item.bbox[2]-$item.bbox[0]+8),[single]($item.bbox[3]-$item.bbox[1]+5))
         $g.DrawString([string]$item.text,$font,$brush,$rect,$format)
+        $g.Flush([System.Drawing.Drawing2D.FlushIntention]::Sync)
         $font.Dispose();$format.Dispose()
     }elseif($item.kind -eq 'line'){
         $pts=New-Object 'System.Collections.Generic.List[System.Drawing.PointF]'

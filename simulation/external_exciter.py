@@ -1,8 +1,8 @@
-"""Small externally supplied flux exciter, not a regenerative VFD.
+"""Small battery/boost supplied flux exciter, not a regenerative VFD.
 
 Active output is bounded; negative terminal active power is restricted to a
 small local dissipative allowance and 2% of contemporaneous machine export.
-It is NEVER regenerated to the external supply. Reactive current gets the
+It is never regenerated through the nonregenerative boost stage. Reactive current gets the
 remaining converter current/voltage capability. No zero-P identity is imposed.
 """
 import math
@@ -39,6 +39,11 @@ def current(p, voltage, request, reference_axis, machine_export, enabled, supply
         scale=2*budget/(b+math.sqrt(b*b+4*a*budget)) if budget>0 else 0.
         output*=scale
         real=(output/axis).real
+    # Scaling a small absorbing current toward zero can leave the voltage
+    # capability circle when the machine terminal is already above its ceiling.
+    # Block instead; Kernel re-solves KCL with the resulting zero current.
+    if abs(voltage+resistance*output)>umax+1e-9:
+        return 0j,p.inverter_idle_loss,p.inverter_idle_loss,True
     pac=1.5*amplitude*real
     conduction=1.5*resistance*abs(output)**2+p.inverter_idle_loss
     # Negative AC watts are dissipated locally, not silently discarded.

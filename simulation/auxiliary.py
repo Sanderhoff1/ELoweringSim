@@ -25,12 +25,12 @@ def battery(p, terminal_power):
     return v-r*i,i,r*i*i
 
 
-def paths(p, energy, supply, vdc, h):
+def paths(p, energy, supply, vdc, h, charger_enabled=True):
     draw=supply/p.boost_efficiency
     room=max(0,p.battery_capacity_wh*3600-energy)
     charge_i=min(p.battery_charge_current_limit,room/(h*p.battery_voltage))
     max_charge=(p.battery_voltage+p.battery_internal_resistance*charge_i)*charge_i
-    cin=min(p.charger_power_limit,(draw+max_charge)/p.charger_efficiency) if vdc>=p.charger_min_dc_voltage else 0.
+    cin=min(p.charger_power_limit,(draw+max_charge)/p.charger_efficiency) if charger_enabled and vdc>=p.charger_min_dc_voltage else 0.
     cout=cin*p.charger_efficiency
     vt,i,heat=battery(p,draw-cout)
     return dict(boost_input=draw,boost_output=supply,boost_heat=draw-supply,

@@ -2,7 +2,8 @@
 
 Reviewed against HEAD `3b290f5ef650abb53bc0a31faca7201975731b84`.
 The running topology is `ExternalLoweringModel` (the historical class name is
-retained for compatibility). Its only energy inputs are initial stored energy
+retained for compatibility). Work was resumed against saved HEAD
+`2346b9ffb7ca7800a2ef295206e58a9ada7f622c`. Its only energy inputs are initial stored energy
 and decreasing load height. `external_supply_voltage` is a legacy parameter
 and cannot supply this model.
 
@@ -126,3 +127,27 @@ Run `python -m simulation.power_review` for component tables at reset, startup,
 acceleration and steady lowering, plus capacitor-only snapshots. Run
 `python -m simulation.preview_energy` for previews rendered from the actual Tk
 canvas geometry at the normal application size with its sidebar present.
+
+
+## Startup support and live controls
+
+In **Capacitor only**, **Battery excitation** is a supported start condition.
+It runs the finite battery/boost/exciter path while building the field and
+maintaining AC-bank excitation. Once flux exceeds the configured startup
+threshold for the configured dwell, support disconnects and stays disconnected
+until Reset. This is distinct from **Precharged capacitor bank**, which remains
+a one-time initial energy transfer. Handover does not guarantee that the field
+will persist: subsequent passive self-excitation depends on speed and capacitance.
+All support power, losses and battery depletion enter the existing balances.
+
+Selecting **Residual magnetism** supplies a 0.005 Wb illustrative initial seed
+when the configured seed is zero. A positive user-configured seed is retained;
+**Zero flux** explicitly starts without a seed. The magnetic-field inset uses
+logarithmic brightness to reveal small residual fields, with true measured Wb
+and percentage printed alongside it. It does not change the simulated flux.
+
+Click the **CHARGER** card to enable or disable the DC-link-to-24-V charger.
+The setting takes effect in the physical power path immediately, without
+resetting time or energy states. OFF means zero charger input, output and heat;
+it does not disconnect the separate battery-to-boost path. ON permits charging
+subject to the existing DC voltage, battery current and SOC limits.
