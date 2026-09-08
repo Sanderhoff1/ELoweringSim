@@ -1,9 +1,10 @@
 """Small standard-library UI: canvas animation, input fields, and history."""
 from collections import deque
-import copy
-from dataclasses import fields, replace
+from dataclasses import dataclass, fields, replace
 import math
 from pathlib import Path
+import statistics
+import sys
 import time
 import tkinter as tk
 from tkinter import ttk
@@ -27,6 +28,90 @@ STEADY_FIELDS = {'peak_motor_torque', 'peak_slip', 'reference_volts_per_hz'}
 REVIEWED_FIELDS = {'core_loss_resistance','external_supply_voltage','exciter_active_limit',
                    'exciter_absorption_limit','exciter_flux_target','startup_frequency',
                    'startup_flux_fraction','startup_dwell','startup_ramp'}
+
+TELEMETRY_INTERVAL = 1/50
+TEXT_INTERVAL = 1/15
+FRAME_INTERVAL = 1/60
+DISCRETE_TELEMETRY = {
+    'brake_command', 'brake_physical_state', 'motor_mode', 'inverter_status',
+    'boost_status', 'startup_status', 'main_dc_connection', 'fault', 'k_cap',
+    'k_exc', 'k_precharge', 'k_main', 'charger_enabled', 'startup_support',
+    'support_complete', 'control_power_available', 'battery_ok',
+    'auxiliary_hv_ready', 'field_ready', 'ac_bus_ready', 'dc_link_ready',
+    'lowering', 'rectifier_enabled', 'dc_exciter', 'external_exciter',
+    'boost_enabled', 'chopper_active', 'slip_valid', 'beyond_peak',
+}
+
+
+@dataclass(frozen=True)
+class ReplayState:
+    time: float
+    position: float
+    angle: float
+    omega: float
+    grounded: bool
+    impact_speed: float
+    impact_energy: float
+
+
+@dataclass(frozen=True)
+class ReplayFrame:
+    """One lightweight 50 Hz playback sample; no model graph or history copy."""
+    t: float
+    readings: dict
+    state: ReplayState
+    brake_released: bool
+    motor_connected: bool
+    inverter_enabled: bool
+    capacitors_enabled: bool
+
+
+def _wrapped_lerp(a, b, fraction):
+    delta = (b-a+math.pi) % (2*math.pi)-math.pi
+    return a+fraction*delta
+
+
+def interpolate_telemetry(before, after, fraction, key=''):
+    """Interpolate continuous telemetry while holding switch/fault states."""
+    if key in DISCRETE_TELEMETRY or isinstance(before, (bool, str)):
+        return before
+    if isinstance(before, dict) and isinstance(after, dict):
+        return {name: interpolate_telemetry(value, after.get(name, value), fraction, name)
+                for name, value in before.items()}
+    if isinstance(before, (int, float)) and isinstance(after, (int, float)):
+        if key == 'flux_angle':
+            return _wrapped_lerp(before, after, fraction)
+        return before+(after-before)*fraction
+    return before
+
+
+class PerformanceLog:
+    """Low-overhead rolling profiler, printed every 300 Energy Flow frames."""
+    def __init__(self):
+        self.values = {name: [] for name in
+                       ('physics', 'readings', 'energy_draw', 'frame', 'frame_period')}
+        self.frames = 0
+        self.last_frame_started = None
+
+    def add(self, name, seconds):
+        self.values[name].append(seconds)
+        if len(self.values[name]) > 10000:
+            del self.values[name][:-5000]
+
+    def report_if_ready(self, mass, replay, items, updates):
+        self.frames += 1
+        if self.frames % 300:
+            return
+        parts = []
+        for name in ('physics', 'readings', 'energy_draw', 'frame', 'frame_period'):
+            sample = self.values[name][-300:]
+            if sample:
+                parts.append(f'{name} avg/max {statistics.mean(sample)*1000:.2f}/{max(sample)*1000:.2f} ms')
+        periods = self.values['frame_period'][-300:]
+        fps = 1/statistics.mean(periods) if periods else 0
+        print(f"[EnergyFlow profile, {mass:g} kg, {'replay' if replay else 'live'}] "
+              + '; '.join(parts) + f'; achieved {fps:.1f} FPS; items {items}; updates/frame {updates}',
+              file=sys.stderr)
 
 
 class Application:
@@ -55,6 +140,15 @@ class Application:
         self.presim_frames = []
         self.presim_index = 0
         self.presim_wall = 0.0
+        self.replay_history = deque(maxlen=1500)
+        self.live_readings = None
+        self.live_readings_wall = 0.0
+        self.next_text_time = 0.0
+        self.next_frame_time = time.perf_counter()
+        self.performance = PerformanceLog()
+        self.presim_physics_times = []
+        self.presim_readings_times = []
+        self.presim_started_wall = 0.0
         source = tk.PhotoImage(file=str(Path(__file__).with_name("assets") / "self_hoisting_crane.png"))
         self.crane_background = source.subsample(3, 3)
         # Playback stays outside both scrolling panes.
@@ -516,35 +610,58 @@ class Application:
                 return "break"
             widget = getattr(widget, 'master', None)
 
-    def sample(self):
-        self.sample_steps += 1
-        if self.sample_steps % 25 == 0:
-            r = self.model.readings()
-            self.history.append((self.model.state.time, r['velocity'], r['acceleration'], r['gravity_power'], r['brake_capacity'], r['motor_torque'], r['slip'], r['electrical_export'], r['rotor_loss'], r['line_voltage'], r['inverter_current'], r['inverter_reactive_supply'], r['capacitor_reactive_supply'], r['capacitor_line_current'], r.get('flux_magnitude',0), r.get('capacitor_energy',0), r.get('bus_frequency',self.model.parameters.supply_frequency)))
+    @staticmethod
+    def history_row(r, sample_time):
+        row = (sample_time, r['velocity'], r['acceleration'], r['gravity_power'],
+               r['brake_capacity'], r['motor_torque'], r['slip'],
+               r['electrical_export'], r['rotor_loss'], r['line_voltage'],
+               r['inverter_current'], r['inverter_reactive_supply'],
+               r['capacitor_reactive_supply'], r['capacitor_line_current'],
+               r.get('flux_magnitude',0), r.get('capacitor_energy',0),
+               r.get('bus_frequency',0))
+        return row + tuple(r.get(key,0) for key in
+            ('dc_voltage','dc_brake_power','dc_energy','rectifier_power',
+             'chopper_duty','inverter_dc_power','inverter_loss',
+             'battery_power','boost_power','boost_loss'))
 
-            self.history[-1] += tuple(r.get(key,0) for key in
-                ('dc_voltage','dc_brake_power','dc_energy','rectifier_power',
-                 'chopper_duty','inverter_dc_power','inverter_loss',
-                 'battery_power','boost_power','boost_loss'))
+    def timed_readings(self):
+        started = time.perf_counter()
+        readings = self.model.readings()
+        elapsed = time.perf_counter()-started
+        self.performance.add('readings', elapsed)
+        if self.presim_running:
+            self.presim_readings_times.append(elapsed)
+        readings['_time'] = self.model.state.time
+        return readings
+
+    def sample(self, r):
+        if not self.history or self.model.state.time-self.history[-1][0] >= .05-1e-9:
+            self.history.append(self.history_row(r, self.model.state.time))
 
     def sync(self):
         now = time.perf_counter()
+        self.active_speed = float(self.speed.get())
         if self.presim_frames and self.playing:
             self.presim_wall += now - self.last_wall
             frame_time = self.presim_wall * self.active_speed
             while (self.presim_index + 1 < len(self.presim_frames)
-                   and self.presim_frames[self.presim_index + 1][0] <= frame_time):
+                   and self.presim_frames[self.presim_index + 1].t <= frame_time):
                 self.presim_index += 1
+                frame = self.presim_frames[self.presim_index]
+                if (not self.replay_history
+                        or frame.t-self.replay_history[-1][0] >= .05-1e-9):
+                    self.replay_history.append(self.history_row(frame.readings, frame.t))
             if self.presim_index + 1 >= len(self.presim_frames):
                 self.playing = False
                 self.play_button.configure(text='Play')
             self.last_wall = now
             return
         if self.playing:
-            self.clock.advance(now-self.last_wall, self.active_speed, self.sample,
-                               max_steps=(10 if self.model.rectifier_enabled else 50) if self.dynamic_mode.get() else 2000)
+            self.clock.advance(now-self.last_wall, self.active_speed, None,
+                               max_steps=(10 if self.model.rectifier_enabled else 50) if self.dynamic_mode.get() else 2000,
+                               step_timer=lambda seconds:self.performance.add('physics', seconds),
+                               max_wall_seconds=.012)
         self.last_wall = now
-        self.active_speed = float(self.speed.get())
 
     def apply(self):
         try:
@@ -630,7 +747,12 @@ class Application:
         if self.presim_frames and not self.playing:
             self.presim_index = 0
             self.presim_wall = 0.0
+            self.replay_history.clear()
             self.last_wall = time.perf_counter()
+            for values in self.performance.values.values():
+                values.clear()
+            self.performance.frames = 0
+            self.performance.last_frame_started = None
         self.playing = not self.playing
         self.play_button.configure(text="Pause" if self.playing else "Play")
 
@@ -659,22 +781,43 @@ class Application:
         self.presim_progress.set(0)
         self.presim_target = duration
         self.presim_running = True
+        self.presim_physics_times = []
+        self.presim_readings_times = []
+        self.presim_started_wall = time.perf_counter()
+        self.presim_frames.append(self.capture_replay_frame())
         self.message.set(f'Pre-simulating 0.0 / {duration:g} seconds...')
         self.root.after(1, self.pre_simulate_chunk)
+
+    def capture_replay_frame(self):
+        r = self.timed_readings()
+        s = self.model.state
+        return ReplayFrame(
+            s.time, r,
+            ReplayState(s.time, s.position, s.angle, s.omega, s.grounded,
+                        s.impact_speed, s.impact_energy),
+            self.model.brake_released, self.model.motor_connected,
+            self.model.inverter_enabled, self.model.capacitors_enabled)
 
     def pre_simulate_chunk(self):
         if not self.presim_running:
             return
         try:
             # Small batches keep Tk responsive and allow the progress bar to repaint.
+            chunk_started = time.perf_counter()
             for _ in range(10):
                 remaining = self.presim_target - self.model.state.time
                 if remaining <= 0 or self.model.state.grounded:
                     self.presim_running = False
                     break
+                started = time.perf_counter()
                 self.model.step(min(0.002, remaining))
-                if not self.presim_frames or self.model.state.time - self.presim_frames[-1][0] >= 0.02:
-                    self.presim_frames.append((self.model.state.time, copy.deepcopy(self.model), tuple(self.history)))
+                elapsed = time.perf_counter()-started
+                self.performance.add('physics', elapsed)
+                self.presim_physics_times.append(elapsed)
+                if self.model.state.time-self.presim_frames[-1].t >= TELEMETRY_INTERVAL-1e-9:
+                    self.presim_frames.append(self.capture_replay_frame())
+                if time.perf_counter()-chunk_started >= .012:
+                    break
         except (ValueError, OverflowError, ZeroDivisionError) as error:
             self.presim_running = False
             self.message.set(f'Pre-simulation stopped: {error}')
@@ -686,7 +829,15 @@ class Application:
         else:
             self.presim_progress.set(100 if self.model.state.time >= self.presim_target else self.presim_progress.get())
             if self.model.state.time >= self.presim_target:
-                self.message.set(f'Pre-simulation complete ({self.presim_target:g} seconds). Press Play to run it.')
+                wall = time.perf_counter()-self.presim_started_wall
+                physics = self.presim_physics_times
+                readings = self.presim_readings_times
+                print('[Pre-simulation profile] '
+                      f'physics avg/max {statistics.mean(physics)*1000:.2f}/{max(physics)*1000:.2f} ms; '
+                      f'readings avg/max {statistics.mean(readings)*1000:.2f}/{max(readings)*1000:.2f} ms; '
+                      f'{len(self.presim_frames)} telemetry frames in {wall:.2f} s', file=sys.stderr)
+                self.message.set(f'Pre-simulation complete ({self.presim_target:g} seconds, '
+                                 f'{len(self.presim_frames)} lightweight frames). Press Play to run it.')
                 self.presim_wall = 0.0
             self.presim_button.configure(state='normal')
             self.reset(preserve_presim=True)
@@ -701,7 +852,10 @@ class Application:
         self.sync_converter_sliders()
         self.clock.pending = 0
         self.history.clear()
+        self.replay_history.clear()
         self.sample_steps = 0
+        self.live_readings = None
+        self.live_readings_wall = 0.0
         self.last_wall = time.perf_counter()
         if not preserve_presim:
             self.presim_frames = []
@@ -709,6 +863,11 @@ class Application:
             self.presim_wall = 0.0
 
     def tick(self):
+        frame_started = time.perf_counter()
+        if self.performance.last_frame_started is not None:
+            self.performance.add('frame_period',
+                                 frame_started-self.performance.last_frame_started)
+        self.performance.last_frame_started = frame_started
         try:
             self.sync()
         except (ValueError, OverflowError) as error:
@@ -716,18 +875,75 @@ class Application:
             self.play_button.configure(text='Play')
             self.message.set(f'Simulation paused: {error}')
         self.draw()
-        self.root.after(16, self.tick)
+        frame_finished = time.perf_counter()
+        self.performance.add('frame', frame_finished-frame_started)
+        if self.view_tabs.index(self.view_tabs.select()) == 0:
+            self.performance.report_if_ready(
+                self.model.parameters.mass, bool(self.presim_frames),
+                self.energy_view.created_once, self.energy_view.updates_last_frame)
+        self.next_frame_time += FRAME_INTERVAL
+        if self.next_frame_time < frame_finished-FRAME_INTERVAL:
+            missed = math.floor((frame_finished-self.next_frame_time)/FRAME_INTERVAL)+1
+            self.next_frame_time += missed*FRAME_INTERVAL
+        delay_ms = max(0, math.ceil((self.next_frame_time-time.perf_counter())*1000))
+        self.root.after(delay_ms, self.tick)
+
+    def display_snapshot(self):
+        """Return interpolated display state/readings without running physics."""
+        if not self.presim_frames:
+            now = time.perf_counter()
+            if (self.live_readings is None
+                    or now-self.live_readings_wall >= TELEMETRY_INTERVAL):
+                self.live_readings = self.timed_readings()
+                self.live_readings_wall = now
+                self.sample(self.live_readings)
+            self.live_readings['_visual_time'] = (
+                self.live_readings['_time'] + (now-self.live_readings_wall)*self.active_speed
+                if self.playing else self.live_readings['_time'])
+            return self.model.state, self.live_readings, self.history, {
+                'brake_released': self.model.brake_released,
+                'motor_connected': self.model.motor_connected,
+                'inverter_enabled': self.model.inverter_enabled,
+                'capacitors_enabled': self.model.capacitors_enabled,
+            }
+        before = self.presim_frames[self.presim_index]
+        if self.presim_index+1 < len(self.presim_frames):
+            after = self.presim_frames[self.presim_index+1]
+            target = min(after.t, self.presim_wall*self.active_speed)
+            fraction = (target-before.t)/max(after.t-before.t, 1e-12)
+            readings = interpolate_telemetry(before.readings, after.readings, fraction)
+            state = ReplayState(
+                target,
+                before.state.position+(after.state.position-before.state.position)*fraction,
+                before.state.angle+(after.state.angle-before.state.angle)*fraction,
+                before.state.omega+(after.state.omega-before.state.omega)*fraction,
+                before.state.grounded, before.state.impact_speed, before.state.impact_energy)
+        else:
+            target, readings, state = before.t, before.readings, before.state
+        readings['_time'] = target
+        return state, readings, self.replay_history, {
+            'brake_released': before.brake_released,
+            'motor_connected': before.motor_connected,
+            'inverter_enabled': before.inverter_enabled,
+            'capacitors_enabled': before.capacitors_enabled,
+        }
 
     def draw(self):
-        display_model = (self.presim_frames[self.presim_index][1]
-                         if self.presim_frames else self.model)
-        display_history = (self.presim_frames[self.presim_index][2]
-                           if self.presim_frames else self.history)
-        self.released.set(display_model.brake_released)
+        s, r, display_history, flags = self.display_snapshot()
+        if self.released.get() != flags['brake_released']:
+            self.released.set(flags['brake_released'])
         if self.view_tabs.index(self.view_tabs.select())==0:
-            self.energy_view.draw(display_model,display_model.readings(),display_history,self.playing)
+            now = time.perf_counter()
+            update_text = now >= self.next_text_time
+            if update_text:
+                self.next_text_time = now+TEXT_INTERVAL
+            started = time.perf_counter()
+            self.energy_view.draw(self.model, r, display_history, self.playing,
+                                  visual_time=r.get('_visual_time', r['_time']),
+                                  update_text=update_text)
+            self.performance.add('energy_draw', time.perf_counter()-started)
             return
-        c, s, r = self.canvas, display_model.state, display_model.readings()
+        c = self.canvas
         c.delete("all")
         # The canvas has a deliberate minimum content width. Smaller windows
         # scroll horizontally instead of collapsing sections onto each other.
@@ -736,18 +952,18 @@ class Application:
             c.create_text(x, y, text=text, fill=color, font=("Segoe UI", size), anchor=anchor)
         label(22, 15, f"t = {s.time:8.3f} s    playback {self.active_speed:g}×    {'RUNNING' if self.playing else 'PAUSED'}", size=15)
         label(22, 49, f"Descent {r['velocity']:.3f} m/s    acceleration {r['acceleration']:.3f} m/s²    shaft {r['rpm']:.1f} RPM" + (f"   lag {self.clock.pending:.1f} s" if self.clock.pending>0.2 else ''))
-        self.draw_crane(label)
+        self.draw_crane(label, s)
         # Telemetry owns the column to the right of the 700 px crane scene.
         info_x = 640
         label(info_x, 90, "LANDED — Reset to restart" if s.grounded else "LOWERING BAY", color="#f5bc57", size=13)
-        label(info_x, 124, f"Clearance: {r['clearance']:.3f} m\nTravel: {s.position:.3f} / {self.model.parameters.crane_height:g} m\nBrake command: {'RELEASE' if self.model.brake_released else 'APPLY'}\nAvailable brake torque: {r['brake_capacity']:.1f} N m")
+        label(info_x, 124, f"Clearance: {r['clearance']:.3f} m\nTravel: {s.position:.3f} / {self.model.parameters.crane_height:g} m\nBrake command: {'RELEASE' if flags['brake_released'] else 'APPLY'}\nAvailable brake torque: {r['brake_capacity']:.1f} N m")
         c.create_rectangle(info_x, 215, info_x+350, 229, fill="#293140", outline="")
         c.create_rectangle(info_x, 215, info_x+350*(r['brake_capacity']/max(self.model.parameters.brake_torque, 1e-9)), 229, fill="#f5bc57", outline="")
         label(info_x, 250, f"Shaft angle: {s.angle:.2f} rad\nShaft speed: {s.omega:.2f} rad/s\nPotential energy*: {r['potential_energy']:.1f} J\nKinetic energy: {r['kinetic_energy']:.1f} J\nGravity power: {r['gravity_power']:.1f} W\nBrake dissipation: {r['brake_power']:.1f} W\nViscous dissipation: {r['friction_power']:.1f} W")
         label(info_x, 410, f"Impact: {s.impact_speed:.2f} m/s · {s.impact_energy:.1f} J" if s.grounded else "*Energy relative to starting height", color="#93a3ba", size=9)
 
         # Electrical telemetry occupies its own row below the illustration.
-        connected = self.model.motor_connected
+        connected = flags['motor_connected']
         dynamic = self.dynamic_mode.get()
         mode_color = '#4ee1bd' if r['motor_mode'] == 'GENERATING' else '#f5bc57'
         label(22, 455, f"INDUCTION MACHINE · {r['motor_mode']}", color=mode_color, size=12)
@@ -756,7 +972,7 @@ class Application:
         label(400, 488, f"{'Machine terminal export' if dynamic else 'Export to AC sink'}: {r['electrical_export']:.1f} W\nMotor shaft power: {r['motor_shaft_power']:.1f} W\nRotor heat loss: {r['rotor_loss']:.1f} W")
         label(22, 565, "Export: positive = generating; negative = power drawn from source. Torque: positive = lowering.", color='#93a3ba', size=10)
         label(22, 590, 'Dynamic flux and capacitor voltage; power includes changes in stored electrical energy.' if dynamic else "Beyond peak slip: available torque falls as slip grows." if r['beyond_peak'] else "Ideal supply establishes excitation instantly; no electrical transients modeled.", color='#93a3ba', size=10)
-        label(22, 630, 'BATTERY / BOOST · SMALL FLUX EXCITER' if r.get('external_exciter') else 'DC-FED EXCITATION · '+r['inverter_status'] if r.get('dc_exciter') else "IDEAL EXCITATION · ON" if (dynamic or connected) and self.model.inverter_enabled else "IDEAL EXCITATION · OFF / DISCONNECTED", color='#4ee1bd', size=12)
+        label(22, 630, 'BATTERY / BOOST · SMALL FLUX EXCITER' if r.get('external_exciter') else 'DC-FED EXCITATION · '+r['inverter_status'] if r.get('dc_exciter') else "IDEAL EXCITATION · ON" if (dynamic or connected) and flags['inverter_enabled'] else "IDEAL EXCITATION · OFF / DISCONNECTED", color='#4ee1bd', size=12)
         voltage_note = 'V RMS-equivalent' if dynamic else 'V RMS'
         field_note = f"Flux: {r.get('flux_magnitude',0):.4f} Wb turn" if dynamic else f"Effective peak torque: {r['effective_peak_torque']:.1f} N m"
         frequency_note = f"Bus frequency: {r.get('bus_frequency',0):.2f} Hz (vector estimate)" if dynamic else f"Frequency: {self.model.parameters.supply_frequency:g} Hz (fixed setpoint)"
@@ -764,7 +980,7 @@ class Application:
         label(470, 660, f"Inverter current: {r['inverter_current']:.3f} A RMS\nNet inverter VAR: {r['inverter_reactive_supply']:+.1f} var\nInverter real power: {r['inverter_real_power']:.1f} W\nMachine line current: {r['machine_line_current']:.3f} A RMS")
         label(22, 756, f"DC-fed: {r['inverter_dc_power']:+.1f} W from DC · {r['inverter_loss']:.1f} W loss · ceiling {r['inverter_voltage_limit']:.1f} V LL · limit {self.model.parameters.inverter_current_limit:g} A" if r.get('dc_exciter') else f"External supply {r['external_supply_power']:.1f} W · converter loss {r['inverter_loss']:.1f} W · limited active power; passive regeneration" if r.get('external_exciter') else 'Ideal inverter uses an external energy source/sink; OFF means zero inverter current.' if dynamic else "Inverter VAR: positive supplies, negative absorbs. Real watts use the ideal P boundary.", color='#93a3ba', size=10)
         label(22, 795, "PARALLEL AC CAPACITORS · DELTA", color='#4ee1bd', size=12)
-        label(22, 826, f"Bank: {'CONNECTED' if self.model.capacitors_enabled else 'DISCONNECTED'}\nCapacitance: {self.model.parameters.capacitor_capacitance:g} µF per branch\nCapacitor supply: {r['capacitor_reactive_supply']:.1f} var\nCapacitor line current: {r['capacitor_line_current']:.3f} A RMS")
+        label(22, 826, f"Bank: {'CONNECTED' if flags['capacitors_enabled'] else 'DISCONNECTED'}\nCapacitance: {self.model.parameters.capacitor_capacitance:g} µF per branch\nCapacitor supply: {r['capacitor_reactive_supply']:.1f} var\nCapacitor line current: {r['capacitor_line_current']:.3f} A RMS")
         capacitor_note = (f"Capacitor energy: {r.get('capacitor_energy',0):.3f} J\nMagnetic energy: {r.get('magnetic_energy',0):.3f} J\nAC test load: {r.get('load_power',0):.2f} W\nEnergy balance error: {r.get('energy_residual',0):.4g} J" if dynamic else f"Machine VAR demand: {r['machine_reactive_demand']:.1f} var\nCompensation: {100*r['compensation_fraction']:.1f}%\nFull compensation C: {r['matching_capacitance']:.1f} µF/branch\nVoltage held by the ideal inverter")
         label(470, 826, capacitor_note)
         label(22, 925, 'Self-excitation depends on speed, capacitance, seed, saturation and loading; no voltage clamp when OFF.' if dynamic else "Steady-state compensation only: capacitor-only self-excitation and switching transients are not modeled.", color='#93a3ba', size=10)
@@ -772,9 +988,9 @@ class Application:
         dc_on = r.get('rectifier_enabled',False)
         label(22, system_y, "SYSTEM · DC-fed exciter / controlled chopper" if r.get('dc_exciter') else "SYSTEM · averaged rectifier / DC brake active" if dc_on else "SYSTEM · AC test-load mode", size=12)
         row1, row2, row3 = system_y+34, system_y+85, system_y+136
-        boxes = [(22, row1, 'Load / drum', True), (180, row1, 'Induction machine', connected), (338, row1, 'AC bus', connected), (496, row1, 'Excitation inverter', self.model.inverter_enabled), (338, row2, 'Delta capacitors', self.model.capacitors_enabled), (22, row3, '3-phase rectifier', dc_on), (180, row3, 'DC bus', dc_on), (338, row3, 'Direct DC path', dc_on), (496, row3, 'Brake resistor', dc_on), (22, row2, '24 V', False), (180, row2, 'Bootstrap', False), (680, row2, 'AC resistive load' if dynamic else 'Ideal P source/sink', not dc_on)]
+        boxes = [(22, row1, 'Load / drum', True), (180, row1, 'Induction machine', connected), (338, row1, 'AC bus', connected), (496, row1, 'Excitation inverter', flags['inverter_enabled']), (338, row2, 'Delta capacitors', flags['capacitors_enabled']), (22, row3, '3-phase rectifier', dc_on), (180, row3, 'DC bus', dc_on), (338, row3, 'Direct DC path', dc_on), (496, row3, 'Brake resistor', dc_on), (22, row2, '24 V', False), (180, row2, 'Bootstrap', False), (680, row2, 'AC resistive load' if dynamic else 'Ideal P source/sink', not dc_on)]
         if r.get('external_exciter'):
-            boxes=boxes[:9]+[(680,row1,'Battery exciter',self.model.inverter_enabled)]
+            boxes=boxes[:9]+[(680,row1,'Battery exciter',flags['inverter_enabled'])]
             c.create_line(680,row1+21,636,row1+21,fill='#ffc36a',arrow='last',width=2)
         else:
             c.create_line(460, row1+42, 460, row2-4, 750, row2-4, 750, row2, fill=mode_color if connected else '#687384', arrow='both', width=2)
@@ -785,7 +1001,7 @@ class Application:
         for x,y,title,active in boxes:
             if r.get('external_exciter') and title in ('24 V','Bootstrap'):
                 title='Battery exciter' if title=='24 V' else 'Exciter supply'
-                active=self.model.inverter_enabled
+                active=flags['inverter_enabled']
             elif title in ('24 V','Bootstrap'):
                 active=r.get('boost_enabled',False)
                 title='24 V boost' if title=='Bootstrap' else title
@@ -794,7 +1010,7 @@ class Application:
             c.create_rectangle(x,y,x+140,y+42, fill="#214a50" if active else '#293140', outline="#4ee1bd" if active else '#4c5666')
             label(x+70,y+21,title,color="#e4efff" if active else '#8c96a8',anchor="center",size=9)
         c.create_line(496, row1+21, 478, row1+21,
-                      fill='#4ee1bd' if connected and self.model.inverter_enabled else '#687384',
+                      fill='#4ee1bd' if connected and flags['inverter_enabled'] else '#687384',
                       arrow='first' if r['inverter_reactive_supply'] < 0 else 'last', width=2)
         c.create_line(408, row2, 408, row1+42,
                       fill='#4ee1bd' if r['capacitor_reactive_supply'] > 0 else '#687384', arrow='last', width=2)
@@ -824,8 +1040,8 @@ class Application:
                     label(right, bottom+2, f"{end:.2f} s", color="#93a3ba", size=8, anchor="ne")
         c.configure(scrollregion=(0, 0, width, history_y+2240))
 
-    def draw_crane(self, label):
-        c, s, p = self.canvas, self.model.state, self.model.parameters
+    def draw_crane(self, label, state=None):
+        c, s, p = self.canvas, state or self.model.state, self.model.parameters
         # The static machinery is a generated technical illustration informed
         # by Liftra's LT1200 arrangement. Only simulated parts are drawn live.
         scene_x, scene_y = 18, 80

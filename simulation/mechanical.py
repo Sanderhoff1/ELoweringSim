@@ -1,6 +1,7 @@
 """Positive shaft rotation and load displacement both mean lowering."""
 from dataclasses import dataclass, replace
 import math
+import time
 from .parameters import Parameters
 from .induction import motor_readings
 
@@ -195,11 +196,23 @@ class Playback:
         self.model = model
         self.pending = 0.0
 
-    def advance(self, wall_seconds, speed, after_step=None, max_steps=2000):
+    def advance(self, wall_seconds, speed, after_step=None, max_steps=2000,
+                step_timer=None, max_wall_seconds=None):
         self.pending += max(0, wall_seconds) * speed
-        count = min(max_steps, int((self.pending + 1e-12) / PHYSICS_DT))
-        for _ in range(count):
-            self.model.step()
+        planned = min(max_steps, int((self.pending + 1e-12) / PHYSICS_DT))
+        completed = 0
+        batch_started = time.perf_counter()
+        for _ in range(planned):
+            if step_timer:
+                started = time.perf_counter()
+                self.model.step()
+                step_timer(time.perf_counter()-started)
+            else:
+                self.model.step()
             if after_step:
                 after_step()
-        self.pending = max(0.0, self.pending - count * PHYSICS_DT)
+            completed += 1
+            if (max_wall_seconds is not None
+                    and time.perf_counter()-batch_started >= max_wall_seconds):
+                break
+        self.pending = max(0.0, self.pending - completed * PHYSICS_DT)

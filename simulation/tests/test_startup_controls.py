@@ -8,14 +8,20 @@ from simulation.energy_view import EnergyView
 
 
 class Canvas:
-    def __init__(self): self.items=[];self.bindings={}
+    def __init__(self): self.items=[];self.bindings={};self.deletes=[]
     def bind(self,name,callback):self.bindings[name]=callback
     def winfo_width(self):return 985
     def winfo_height(self):return 634
     def configure(self,**kwargs):pass
-    def delete(self,*args):self.items=[]
+    def delete(self,*args):
+        self.deletes.append(args)
+        if args == ('all',): self.items=[]
     def add(self,kind,args,options):
         self.items.append((kind,args,options));return len(self.items)
+    def itemconfigure(self,item,**options):self.items[item-1][2].update(options)
+    def coords(self,item,*args):
+        kind,_,options=self.items[item-1];self.items[item-1]=(kind,args,options)
+    def find_all(self):return tuple(range(1,len(self.items)+1))
     def create_text(self,*args,**options):return self.add('text',args,options)
     def create_line(self,*args,**options):return self.add('line',args,options)
     def create_oval(self,*args,**options):return self.add('oval',args,options)
@@ -104,6 +110,17 @@ class StartupControlsTests(unittest.TestCase):
         frozen=list(canvas.items)
         view.draw(m,r,[],False)
         self.assertEqual(canvas.items,frozen)
+
+    def test_energy_scene_is_persistent_between_frames(self):
+        canvas=Canvas();view=EnergyView(canvas,lambda:None)
+        m=ExternalLoweringModel()
+        r=m.readings();view.draw(m,r,[],True)
+        created=len(canvas.items)
+        canvas.deletes.clear()
+        r=m.readings();view.draw(m,r,[],True,visual_time=.016,update_text=False)
+        self.assertEqual(len(canvas.items),created)
+        self.assertNotIn(('all',),canvas.deletes)
+        self.assertEqual(canvas.deletes,[])
 
 
 if __name__=='__main__':unittest.main()
