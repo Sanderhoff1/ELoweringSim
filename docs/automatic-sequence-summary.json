@@ -1,0 +1,12 @@
+{
+  "exciter": {
+    "final_state": "FAULT",
+    "fault": "MACHINE OVERFLUX",
+    "energy_residual": 0.00039851977794569393
+  },
+  "capacitor": {
+    "final_state": "FAULT",
+    "fault": "RUNAWAY DIAGNOSTIC",
+    "energy_residual": 0.0001567260796946357
+  }
+}

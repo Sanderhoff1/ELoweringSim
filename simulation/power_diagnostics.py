@@ -40,7 +40,9 @@ def diagnostics(model,r):
     k.supply_limit=e.aux_energy/model.max_electrical_step+boost_limit(
         p,e.battery_energy,model.max_electrical_step)
     rate=k.rate((e.stator_flux,e.rotor_flux,e.voltage),e.phase,model.frequency(),s.omega,
-                e.dc_voltage,enabled,True,cap,e.aux_voltage,model.bridge_state(),active_limit)
+                e.dc_voltage,enabled,True,cap,e.aux_voltage,model.bridge_state(),active_limit,
+                model.vf.flux_target if not cap else None,
+                model.vf.voltage_command if not cap else None)
     v=rate.terminal
     is_,ir,_=k.currents(e.stator_flux,e.rotor_flux)
     machine=ac(v,-(is_+v*k.gc))
@@ -50,8 +52,8 @@ def diagnostics(model,r):
     ib=2*rate.rectifier*v/(3*abs(v)**2) if abs(v)>1e-12 else 0j
     bridge=ac(v,ib,True)
     boost_i,_,_,_=boost_current(p,e.aux_voltage,e.boost_current_state,e.battery_energy,
-        model.max_electrical_step,model.controls.master_on and model.switchgear.k_exc and model.inverter_enabled
-        and not model.controls.emergency_stop)
+        model.max_electrical_step,model.controls.master_on and not model.controls.emergency_stop
+        and e.aux_voltage<p.auxiliary_max_voltage)
     boost_output=e.aux_voltage*boost_i
     aux=paths(p,e.battery_energy,boost_output,e.dc_voltage,model.max_electrical_step,model.charger_enabled)
     shaft=-rate.torque*s.omega

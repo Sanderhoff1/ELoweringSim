@@ -1,4 +1,10 @@
-# Phase 4 extension: dynamic induction generator and capacitors
+# Dynamic induction generator and capacitors
+
+> Current reviewed operation adds a finite 24 V battery/boost exciter, passive
+> rectifier, main DC precharge contactor, chopper/resistor, scalar V/f limits,
+> and an explicit brake sequence. See [Scalar V/f emergency-lowering control](scalar-vf-control.md)
+> and [Final topology](final-topology.md). The historical Phase 4 descriptions
+> below document the earlier comparison model and are not the current exciter.
 
 This extension asks **whether excitation can build from a seed, persist after
 inverter disconnection, or collapse**. The application uses it by default.

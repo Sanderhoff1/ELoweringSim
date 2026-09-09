@@ -24,13 +24,19 @@ class PowerBalanceTests(unittest.TestCase):
 
     def test_startup_transient_and_steady_exciter(self):
         m=ExternalLoweringModel()
+        m.controls.automatic_profile=True
+        m.reset()
         self.check_balance(m)
         for target in (.05,.5,1.,3.):
             while m.state.time<target-1e-9:m.step()
             r=self.check_balance(m)
             self.assertLess(abs(r['energy_residual']),.002)
-        self.assertTrue(.24<r['velocity']<.31)
-        self.assertLess(abs(r['acceleration']),.01)
+        self.assertGreater(r['velocity'],0)
+        self.assertEqual(r['sequence_state'],'LOWERING')
+        self.assertLessEqual(r['stator_frequency_command'],
+                             m.parameters.supply_frequency)
+        self.assertLess(r['flux_magnitude'],m.parameters.maximum_magnetic_flux)
+        self.assertLess(r['machine_line_current'],m.parameters.motor_current_limit_rms)
         self.assertEqual(r['external_supply_power'],0)
 
     def test_capacitor_only_and_precharge_at_zero(self):

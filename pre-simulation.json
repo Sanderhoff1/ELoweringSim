@@ -1,0 +1,5028 @@
+{
+  "format": "elowering-pre-simulation",
+  "format_version": 1,
+  "created_utc": "2026-09-09T19:20:56.514914+00:00",
+  "telemetry_file": "pre-simulation.csv",
+  "telemetry_sha256": "a4718f590e9826ec2737c78b1205d78ad6aceb0286ee6b52a99230d00b1d9afe",
+  "frame_count": 501,
+  "duration_s": 10.000000000000021,
+  "telemetry_interval_s": 0.02,
+  "parameter_type": "simulation.parameters.Parameters",
+  "parameters": {
+    "mass": {
+      "value": 300,
+      "unit": "kg",
+      "meaning": "Suspended load mass",
+      "status": "placeholder",
+      "minimum": 0.001,
+      "maximum": 1000000.0
+    },
+    "radius": {
+      "value": 0.0016666666666666668,
+      "unit": "m/rad",
+      "meaning": "Load travel per motor-shaft radian; drum radius / gear ratio",
+      "status": "placeholder",
+      "minimum": 0.0001,
+      "maximum": 100
+    },
+    "inertia": {
+      "value": 0.008,
+      "unit": "kg m²",
+      "meaning": "Rotational inertia at shaft, excluding suspended mass",
+      "status": "placeholder",
+      "minimum": 0.0,
+      "maximum": 1000000.0
+    },
+    "damping": {
+      "value": 0.001,
+      "unit": "N m s/rad",
+      "meaning": "Viscous shaft friction coefficient",
+      "status": "placeholder",
+      "minimum": 0.0,
+      "maximum": 1000000.0
+    },
+    "brake_torque": {
+      "value": 10,
+      "unit": "N m",
+      "meaning": "Static and sliding brake torque capacity at shaft",
+      "status": "placeholder",
+      "minimum": 0.0,
+      "maximum": 1000000.0
+    },
+    "brake_response": {
+      "value": 0.2,
+      "unit": "s",
+      "meaning": "Brake application/release time constant (0 = instantaneous)",
+      "status": "placeholder",
+      "minimum": 0.0,
+      "maximum": 60
+    },
+    "brake_release_delay": {
+      "value": 0.08,
+      "unit": "s",
+      "meaning": "Delay from RELEASE command to physical release motion",
+      "status": "estimated",
+      "minimum": 0.0,
+      "maximum": 10
+    },
+    "brake_application_delay": {
+      "value": 0.05,
+      "unit": "s",
+      "meaning": "Delay from APPLY command to physical application motion",
+      "status": "estimated",
+      "minimum": 0.0,
+      "maximum": 10
+    },
+    "crane_height": {
+      "value": 200,
+      "unit": "m",
+      "meaning": "Initial clearance below load; maximum downward travel",
+      "status": "placeholder",
+      "minimum": 0.01,
+      "maximum": 10000
+    },
+    "gravity": {
+      "value": 9.81,
+      "unit": "m/s²",
+      "meaning": "Constant gravitational acceleration",
+      "status": "estimated",
+      "minimum": 0.0,
+      "maximum": 100
+    },
+    "supply_frequency": {
+      "value": 50.0,
+      "unit": "Hz",
+      "meaning": "Ideal rotating-field frequency, lowering direction",
+      "status": "placeholder",
+      "minimum": 0.1,
+      "maximum": 100
+    },
+    "pole_pairs": {
+      "value": 2,
+      "unit": "pairs",
+      "meaning": "Motor pole pairs (integer; 2 pairs = 4 poles)",
+      "status": "placeholder",
+      "minimum": 1,
+      "maximum": 20
+    },
+    "peak_motor_torque": {
+      "value": 15,
+      "unit": "N m",
+      "meaning": "Peak magnitude of the assumed torque-slip curve",
+      "status": "placeholder",
+      "minimum": 0.0,
+      "maximum": 10000
+    },
+    "peak_slip": {
+      "value": 0.25,
+      "unit": "1",
+      "meaning": "Slip magnitude at peak motor/generator torque",
+      "status": "placeholder",
+      "minimum": 0.01,
+      "maximum": 1
+    },
+    "volts_per_hz": {
+      "value": 8,
+      "unit": "V/Hz",
+      "meaning": "Commanded line-line RMS voltage / frequency",
+      "status": "placeholder",
+      "minimum": 0.0,
+      "maximum": 100
+    },
+    "reference_volts_per_hz": {
+      "value": 8,
+      "unit": "V/Hz",
+      "meaning": "V/f at which the peak torque parameter is defined",
+      "status": "placeholder",
+      "minimum": 0.1,
+      "maximum": 100
+    },
+    "magnetizing_inductance": {
+      "value": 0.65,
+      "unit": "H/phase",
+      "meaning": "Linear star-equivalent magnetizing inductance",
+      "status": "placeholder",
+      "minimum": 0.001,
+      "maximum": 100
+    },
+    "capacitor_capacitance": {
+      "value": 10.0,
+      "unit": "µF/branch",
+      "meaning": "Each of three delta-connected AC capacitors",
+      "status": "placeholder",
+      "minimum": 0.0,
+      "maximum": 100000
+    },
+    "stator_resistance": {
+      "value": 7,
+      "unit": "ohm/phase",
+      "meaning": "Dynamic model: stator winding resistance",
+      "status": "placeholder",
+      "minimum": 0.01,
+      "maximum": 100
+    },
+    "rotor_resistance": {
+      "value": 7.35,
+      "unit": "ohm/phase",
+      "meaning": "Dynamic model: rotor resistance referred to stator",
+      "status": "placeholder",
+      "minimum": 0.01,
+      "maximum": 100
+    },
+    "stator_leakage": {
+      "value": 0.025,
+      "unit": "H/phase",
+      "meaning": "Dynamic model: stator leakage inductance",
+      "status": "placeholder",
+      "minimum": 0.001,
+      "maximum": 1
+    },
+    "rotor_leakage": {
+      "value": 0.025,
+      "unit": "H/phase",
+      "meaning": "Dynamic model: referred rotor leakage inductance",
+      "status": "placeholder",
+      "minimum": 0.001,
+      "maximum": 1
+    },
+    "saturation_flux": {
+      "value": 1.8,
+      "unit": "Wb turn",
+      "meaning": "Flux where nonlinear magnetizing current is twice its linear value",
+      "status": "placeholder",
+      "minimum": 0.01,
+      "maximum": 10
+    },
+    "initial_flux": {
+      "value": 0.005,
+      "unit": "Wb turn",
+      "meaning": "Initial residual-flux seed; initial condition, not a hysteresis model",
+      "status": "placeholder",
+      "minimum": 0.0,
+      "maximum": 1
+    },
+    "precharge_voltage": {
+      "value": 0,
+      "unit": "V LL equiv.",
+      "meaning": "Capacitor-bank target supplied by the 24 V precharge converter",
+      "status": "placeholder",
+      "minimum": 0.0,
+      "maximum": 1000
+    },
+    "initial_shaft_rpm": {
+      "value": 0,
+      "unit": "RPM",
+      "meaning": "Dynamic model: shaft speed at Reset",
+      "status": "placeholder",
+      "minimum": 0.0,
+      "maximum": 3000
+    },
+    "ac_load_resistance": {
+      "value": 220,
+      "unit": "ohm/phase",
+      "meaning": "Balanced star AC test load; larger values mean lighter load",
+      "status": "placeholder",
+      "minimum": 1,
+      "maximum": 100000
+    },
+    "excitation_response": {
+      "value": 0.05,
+      "unit": "s",
+      "meaning": "Exciter voltage / flux feedback response time",
+      "status": "placeholder",
+      "minimum": 0.001,
+      "maximum": 1
+    },
+    "motor_rated_voltage": {
+      "value": 400.0,
+      "unit": "V LL RMS",
+      "meaning": "Nameplate voltage; reference for the overview voltage bar",
+      "status": "estimated",
+      "minimum": 1,
+      "maximum": 1000
+    },
+    "dc_capacitance": {
+      "value": 470.0,
+      "unit": "µF",
+      "meaning": "DC-link smoothing capacitor",
+      "status": "estimated",
+      "minimum": 10,
+      "maximum": 100000
+    },
+    "dc_initial_voltage": {
+      "value": 0.0,
+      "unit": "V",
+      "meaning": "Initial DC-link voltage at reset",
+      "status": "estimated",
+      "minimum": 0.0,
+      "maximum": 1500
+    },
+    "rectifier_resistance": {
+      "value": 10.0,
+      "unit": "ohm",
+      "meaning": "Effective averaged bridge/source resistance; limits charging current",
+      "status": "estimated",
+      "minimum": 1,
+      "maximum": 1000
+    },
+    "dc_brake_resistance": {
+      "value": 330,
+      "unit": "ohm",
+      "meaning": "DC equivalent brake resistance; smaller draws more current at a given voltage",
+      "status": "estimated",
+      "minimum": 10,
+      "maximum": 100000
+    },
+    "chopper_threshold": {
+      "value": 500.0,
+      "unit": "V DC",
+      "meaning": "Chopper starts requesting duty above this DC voltage",
+      "status": "estimated",
+      "minimum": 10,
+      "maximum": 1500
+    },
+    "chopper_band": {
+      "value": 40.0,
+      "unit": "V",
+      "meaning": "Voltage rise above threshold for a full-duty request",
+      "status": "estimated",
+      "minimum": 1,
+      "maximum": 500
+    },
+    "chopper_response": {
+      "value": 0.02,
+      "unit": "s",
+      "meaning": "Averaged chopper duty response time constant",
+      "status": "estimated",
+      "minimum": 0.001,
+      "maximum": 1
+    },
+    "chopper_max_duty": {
+      "value": 1.0,
+      "unit": "fraction",
+      "meaning": "Maximum allowed resistor duty",
+      "status": "estimated",
+      "minimum": 0.0,
+      "maximum": 1
+    },
+    "inverter_current_limit": {
+      "value": 3.0,
+      "unit": "A RMS",
+      "meaning": "Phase current limit of the active exciter",
+      "status": "estimated",
+      "minimum": 0.1,
+      "maximum": 100
+    },
+    "inverter_reactive_current_limit": {
+      "value": 3.0,
+      "unit": "A RMS",
+      "meaning": "Reactive phase-current component limit of the active exciter",
+      "status": "estimated",
+      "minimum": 0.1,
+      "maximum": 100
+    },
+    "inverter_output_resistance": {
+      "value": 5.0,
+      "unit": "ohm/phase",
+      "meaning": "Virtual output impedance used by the averaged current controller; not heat",
+      "status": "estimated",
+      "minimum": 0.01,
+      "maximum": 100
+    },
+    "inverter_conduction_resistance": {
+      "value": 0.25,
+      "unit": "ohm/phase",
+      "meaning": "Physical equivalent inverter conduction resistance used only for heat",
+      "status": "estimated",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "inverter_idle_loss": {
+      "value": 3.0,
+      "unit": "W",
+      "meaning": "Enabled converter overhead; legacy DC-fed mode also requires minimum DC voltage",
+      "status": "estimated",
+      "minimum": 0.0,
+      "maximum": 1000
+    },
+    "inverter_min_dc_voltage": {
+      "value": 50.0,
+      "unit": "V DC",
+      "meaning": "Below this voltage the averaged exciter is disabled",
+      "status": "estimated",
+      "minimum": 1,
+      "maximum": 1000
+    },
+    "battery_voltage": {
+      "value": 24.0,
+      "unit": "V DC",
+      "meaning": "Nominal auxiliary battery voltage",
+      "status": "estimated",
+      "minimum": 1,
+      "maximum": 100
+    },
+    "battery_capacity_wh": {
+      "value": 480.0,
+      "unit": "Wh",
+      "meaning": "Usable 24 V battery energy capacity",
+      "status": "estimated",
+      "minimum": 1,
+      "maximum": 100000
+    },
+    "battery_initial_soc": {
+      "value": 100.0,
+      "unit": "%",
+      "meaning": "Battery state of charge at Reset",
+      "status": "estimated",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "battery_discharge_current_limit": {
+      "value": 20.0,
+      "unit": "A",
+      "meaning": "Maximum battery discharge current",
+      "status": "estimated",
+      "minimum": 0.01,
+      "maximum": 1000
+    },
+    "battery_charge_current_limit": {
+      "value": 10.0,
+      "unit": "A",
+      "meaning": "Maximum battery charge current",
+      "status": "estimated",
+      "minimum": 0.01,
+      "maximum": 1000
+    },
+    "battery_internal_resistance": {
+      "value": 0.05,
+      "unit": "ohm",
+      "meaning": "Lumped battery internal resistance",
+      "status": "estimated",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "boost_target_voltage": {
+      "value": 600,
+      "unit": "V DC",
+      "meaning": "Auxiliary regulated DC output; separate from brake DC link in battery-exciter mode",
+      "status": "estimated",
+      "minimum": 10,
+      "maximum": 1500
+    },
+    "boost_input_power_limit": {
+      "value": 200.0,
+      "unit": "W",
+      "meaning": "Maximum battery input power to the boost converter",
+      "status": "estimated",
+      "minimum": 1,
+      "maximum": 10000
+    },
+    "boost_efficiency": {
+      "value": 0.9,
+      "unit": "fraction",
+      "meaning": "Boost output/input efficiency",
+      "status": "estimated",
+      "minimum": 0.1,
+      "maximum": 1
+    },
+    "boost_output_current_limit": {
+      "value": 1.0,
+      "unit": "A DC",
+      "meaning": "Boost high-voltage output current limit, including initial charging",
+      "status": "estimated",
+      "minimum": 0.01,
+      "maximum": 100
+    },
+    "boost_response": {
+      "value": 0.05,
+      "unit": "s",
+      "meaning": "Boost output-current command response time",
+      "status": "estimated",
+      "minimum": 0.001,
+      "maximum": 10
+    },
+    "boost_voltage_gain": {
+      "value": 0.02,
+      "unit": "A/V",
+      "meaning": "Boost voltage-loop proportional gain",
+      "status": "estimated",
+      "minimum": 0.0001,
+      "maximum": 1
+    },
+    "aux_capacitance": {
+      "value": 470.0,
+      "unit": "µF",
+      "meaning": "Auxiliary high-voltage DC-link capacitor between boost and exciter",
+      "status": "estimated",
+      "minimum": 10,
+      "maximum": 100000
+    },
+    "aux_initial_voltage": {
+      "value": 0.0,
+      "unit": "V DC",
+      "meaning": "Auxiliary-link voltage at Reset",
+      "status": "estimated",
+      "minimum": 0.0,
+      "maximum": 1500
+    },
+    "aux_ready_voltage": {
+      "value": 500.0,
+      "unit": "V DC",
+      "meaning": "Minimum auxiliary-link voltage for field-building readiness",
+      "status": "estimated",
+      "minimum": 1,
+      "maximum": 1500
+    },
+    "precharge_power_limit": {
+      "value": 100.0,
+      "unit": "W",
+      "meaning": "Battery converter limit while precharging AC capacitors",
+      "status": "estimated",
+      "minimum": 1,
+      "maximum": 10000
+    },
+    "precharge_efficiency": {
+      "value": 0.85,
+      "unit": "fraction",
+      "meaning": "Averaged capacitor-precharge converter efficiency",
+      "status": "estimated",
+      "minimum": 0.1,
+      "maximum": 1
+    },
+    "charger_power_limit": {
+      "value": 150.0,
+      "unit": "W",
+      "meaning": "DC-link to battery charger input-power limit",
+      "status": "estimated",
+      "minimum": 1,
+      "maximum": 10000
+    },
+    "charger_efficiency": {
+      "value": 0.9,
+      "unit": "fraction",
+      "meaning": "DC-link battery charger efficiency",
+      "status": "estimated",
+      "minimum": 0.1,
+      "maximum": 1
+    },
+    "charger_min_dc_voltage": {
+      "value": 480,
+      "unit": "V",
+      "meaning": "DC-link voltage at which battery charging may begin",
+      "status": "estimated",
+      "minimum": 1,
+      "maximum": 1500
+    },
+    "core_loss_resistance": {
+      "value": 4000.0,
+      "unit": "ohm/phase",
+      "meaning": "Approximate core-loss branch referred to stator terminals",
+      "status": "estimated",
+      "minimum": 100,
+      "maximum": 1000000000000.0
+    },
+    "gearbox_efficiency": {
+      "value": 0.9,
+      "unit": "fraction",
+      "meaning": "Lowering gear efficiency; gravity-referred loss torque",
+      "status": "estimated",
+      "minimum": 0.1,
+      "maximum": 1
+    },
+    "drivetrain_loss_torque": {
+      "value": 0.1,
+      "unit": "N m",
+      "meaning": "Bearing/seal Coulomb loss torque at motor shaft",
+      "status": "estimated",
+      "minimum": 0.0,
+      "maximum": 100
+    },
+    "external_supply_voltage": {
+      "value": 400.0,
+      "unit": "V LL RMS",
+      "meaning": "Legacy comparison only; unused by the finite battery-exciter model",
+      "status": "known",
+      "minimum": 10,
+      "maximum": 1000
+    },
+    "exciter_active_limit": {
+      "value": 200.0,
+      "unit": "W",
+      "meaning": "Maximum positive exciter AC active output",
+      "status": "estimated",
+      "minimum": 1,
+      "maximum": 10000
+    },
+    "exciter_run_active_limit": {
+      "value": 35.0,
+      "unit": "W",
+      "meaning": "Maximum positive exciter AC power after brake release",
+      "status": "estimated",
+      "minimum": 0,
+      "maximum": 10000
+    },
+    "exciter_absorption_limit": {
+      "value": 0.0,
+      "unit": "W",
+      "meaning": "Deprecated compatibility input; reviewed exciter never absorbs AC real power",
+      "status": "estimated",
+      "minimum": 0.0,
+      "maximum": 100
+    },
+    "exciter_flux_target": {
+      "value": 0.95,
+      "unit": "Wb turn",
+      "meaning": "Peak magnetizing flux-linkage reference",
+      "status": "estimated",
+      "minimum": 0.01,
+      "maximum": 5
+    },
+    "maximum_magnetic_flux": {
+      "value": 1.3,
+      "unit": "Wb turn",
+      "meaning": "Maximum allowed estimated magnetizing flux before V/f derating",
+      "status": "estimated",
+      "minimum": 0.01,
+      "maximum": 10
+    },
+    "motor_current_limit_rms": {
+      "value": 6.0,
+      "unit": "A RMS",
+      "meaning": "Maximum intended machine phase-current magnitude for scalar V/f control",
+      "status": "estimated",
+      "minimum": 0.1,
+      "maximum": 1000
+    },
+    "overcurrent_dwell": {
+      "value": 0.1,
+      "unit": "s",
+      "meaning": "Time above the machine-current limit before a protection fault",
+      "status": "estimated",
+      "minimum": 0.001,
+      "maximum": 10
+    },
+    "auxiliary_max_voltage": {
+      "value": 650.0,
+      "unit": "V DC",
+      "meaning": "Auxiliary-link overvoltage protection limit",
+      "status": "estimated",
+      "minimum": 10,
+      "maximum": 2000
+    },
+    "main_dc_max_voltage": {
+      "value": 650.0,
+      "unit": "V DC",
+      "meaning": "Main DC-link overvoltage protection limit",
+      "status": "estimated",
+      "minimum": 10,
+      "maximum": 2000
+    },
+    "minimum_control_frequency": {
+      "value": 5.0,
+      "unit": "Hz",
+      "meaning": "Minimum intended controlled exciter frequency before mechanical braking",
+      "status": "estimated",
+      "minimum": 0.1,
+      "maximum": 100
+    },
+    "frequency_accel_rate": {
+      "value": 15.0,
+      "unit": "Hz/s",
+      "meaning": "Maximum scalar V/f frequency-command increase",
+      "status": "estimated",
+      "minimum": 0.01,
+      "maximum": 1000
+    },
+    "frequency_decel_rate": {
+      "value": 3.0,
+      "unit": "Hz/s",
+      "meaning": "Maximum scalar V/f frequency-command decrease",
+      "status": "estimated",
+      "minimum": 0.01,
+      "maximum": 1000
+    },
+    "vf_limit_response": {
+      "value": 0.01,
+      "unit": "s",
+      "meaning": "Current/flux derating response time",
+      "status": "estimated",
+      "minimum": 0.001,
+      "maximum": 10
+    },
+    "sequence_normal_frequency": {
+      "value": 20.0,
+      "unit": "Hz",
+      "meaning": "Canonical lowering frequency target",
+      "status": "estimated",
+      "minimum": 0.1,
+      "maximum": 100
+    },
+    "sequence_slowdown_1_frequency": {
+      "value": 10.0,
+      "unit": "Hz",
+      "meaning": "First canonical slowdown target",
+      "status": "estimated",
+      "minimum": 0.1,
+      "maximum": 100
+    },
+    "sequence_slowdown_2_frequency": {
+      "value": 5.0,
+      "unit": "Hz",
+      "meaning": "Final canonical controlled frequency",
+      "status": "estimated",
+      "minimum": 0.1,
+      "maximum": 100
+    },
+    "sequence_ready_time": {
+      "value": 0.05,
+      "unit": "s",
+      "meaning": "Electrical-ready dwell before brake release",
+      "status": "estimated",
+      "minimum": 0,
+      "maximum": 10
+    },
+    "sequence_normal_hold": {
+      "value": 0.6,
+      "unit": "s",
+      "meaning": "Canonical hold after reaching normal frequency",
+      "status": "estimated",
+      "minimum": 0,
+      "maximum": 60
+    },
+    "sequence_slowdown_1_hold": {
+      "value": 0.5,
+      "unit": "s",
+      "meaning": "Canonical hold after reaching first slowdown target",
+      "status": "estimated",
+      "minimum": 0,
+      "maximum": 60
+    },
+    "sequence_slowdown_2_hold": {
+      "value": 0.4,
+      "unit": "s",
+      "meaning": "Canonical hold at minimum controlled frequency",
+      "status": "estimated",
+      "minimum": 0,
+      "maximum": 60
+    },
+    "sequence_capacitor_hold": {
+      "value": 3.0,
+      "unit": "s",
+      "meaning": "Canonical capacitor-only natural-lowering observation time",
+      "status": "estimated",
+      "minimum": 0.01,
+      "maximum": 120
+    },
+    "sequence_stop_speed": {
+      "value": 0.005,
+      "unit": "m/s",
+      "meaning": "Speed below which a physically applied brake qualifies STOPPED",
+      "status": "estimated",
+      "minimum": 0,
+      "maximum": 10
+    },
+    "runaway_speed_limit": {
+      "value": 0.8,
+      "unit": "m/s",
+      "meaning": "Simulation diagnostic lowering-speed limit",
+      "status": "estimated",
+      "minimum": 0.01,
+      "maximum": 100
+    },
+    "runaway_min_export_power": {
+      "value": 20.0,
+      "unit": "W",
+      "meaning": "Minimum useful export while diagnosing current-limited runaway",
+      "status": "estimated",
+      "minimum": 0,
+      "maximum": 100000
+    },
+    "runaway_dwell": {
+      "value": 0.3,
+      "unit": "s",
+      "meaning": "Duration of runaway evidence before FAULT",
+      "status": "estimated",
+      "minimum": 0.001,
+      "maximum": 10
+    },
+    "startup_frequency": {
+      "value": 2.0,
+      "unit": "Hz",
+      "meaning": "Low-frequency magnetization before brake release",
+      "status": "estimated",
+      "minimum": 0.1,
+      "maximum": 50
+    },
+    "startup_flux_fraction": {
+      "value": 0.8,
+      "unit": "fraction",
+      "meaning": "Required flux fraction before automatic brake release",
+      "status": "estimated",
+      "minimum": 0.1,
+      "maximum": 1
+    },
+    "startup_dwell": {
+      "value": 0.2,
+      "unit": "s",
+      "meaning": "Continuous magnetization qualification before release",
+      "status": "estimated",
+      "minimum": 0.01,
+      "maximum": 10
+    },
+    "startup_ramp": {
+      "value": 0.3,
+      "unit": "s",
+      "meaning": "Field-frequency ramp after brake release",
+      "status": "estimated",
+      "minimum": 0.01,
+      "maximum": 10
+    },
+    "dc_precharge_resistance": {
+      "value": 150.0,
+      "unit": "ohm",
+      "meaning": "Series resistance from bridge to main DC capacitor while K_PRECHARGE is closed",
+      "status": "estimated",
+      "minimum": 0.1,
+      "maximum": 100000
+    },
+    "dc_precharge_close_fraction": {
+      "value": 0.9,
+      "unit": "fraction",
+      "meaning": "Main-contactor close threshold relative to available rectified crest voltage",
+      "status": "estimated",
+      "minimum": 0.1,
+      "maximum": 0.999
+    },
+    "dc_precharge_timeout": {
+      "value": 3.0,
+      "unit": "s",
+      "meaning": "Maximum precharge duration before a latched startup fault",
+      "status": "estimated",
+      "minimum": 0.01,
+      "maximum": 60
+    }
+  },
+  "run_configuration": {
+    "model_class": "simulation.external_model.ExternalLoweringModel",
+    "model_configuration": {
+      "boost_enabled": false,
+      "brake_energy": 0.0,
+      "brake_released": false,
+      "capacitors_enabled": false,
+      "charger_enabled": true,
+      "chopper_active": true,
+      "chopper_enabled": true,
+      "controls": {
+        "master_on": true,
+        "start_lower": true,
+        "stop": false,
+        "emergency_stop": false,
+        "speed_request_hz": null,
+        "brake_release_override": null,
+        "main_dc_enable": true,
+        "main_bypass_command": null,
+        "automatic_profile": true
+      },
+      "dc_exciter": false,
+      "drivetrain_energy": 0.0,
+      "electrical": {
+        "stator_flux": "(0.005+0j)",
+        "rotor_flux": "(0.005+0j)",
+        "voltage": "0j",
+        "dc_energy": 0.0,
+        "capacitance": 0.00047,
+        "phase": 0.0,
+        "time": 0.0,
+        "chopper_duty": 0.0,
+        "source_energy": 0.0,
+        "copper_energy": 0.0,
+        "core_energy": 0.0,
+        "dc_brake_energy": 0.0,
+        "rectifier_energy": 0.0,
+        "dc_input_energy": 0.0,
+        "rectifier_loss_energy": 0.0,
+        "inverter_loss_energy": 0.0,
+        "battery_energy": 1728000.0,
+        "battery_loss_energy": 0.0,
+        "boost_loss_energy": 0.0,
+        "charger_loss_energy": 0.0,
+        "charger_energy": 0.0,
+        "precharge_loss_energy": 0.0,
+        "dc_precharge_loss_energy": 0.0,
+        "aux_energy": 0.0,
+        "aux_capacitance": 0.00047,
+        "boost_current_state": 0.0,
+        "aux_input_energy": 0.0,
+        "aux_output_energy": 0.0
+      },
+      "excitation_mode": "exciter",
+      "external_exciter": true,
+      "friction_energy": 0.0,
+      "gear_energy": 0.0,
+      "ideal_excitation": true,
+      "initial_energy": 1728000.000028302,
+      "inverter_enabled": true,
+      "max_electrical_step": 0.0001,
+      "mechanical_dissipation": 0.0,
+      "motor_connected": true,
+      "parameters": {
+        "mass": 300,
+        "radius": 0.0016666666666666668,
+        "inertia": 0.008,
+        "damping": 0.001,
+        "brake_torque": 10,
+        "brake_response": 0.2,
+        "brake_release_delay": 0.08,
+        "brake_application_delay": 0.05,
+        "crane_height": 200,
+        "gravity": 9.81,
+        "supply_frequency": 50.0,
+        "pole_pairs": 2,
+        "peak_motor_torque": 15,
+        "peak_slip": 0.25,
+        "volts_per_hz": 8,
+        "reference_volts_per_hz": 8,
+        "magnetizing_inductance": 0.65,
+        "capacitor_capacitance": 10.0,
+        "stator_resistance": 7,
+        "rotor_resistance": 7.35,
+        "stator_leakage": 0.025,
+        "rotor_leakage": 0.025,
+        "saturation_flux": 1.8,
+        "initial_flux": 0.005,
+        "precharge_voltage": 0,
+        "initial_shaft_rpm": 0,
+        "ac_load_resistance": 220,
+        "excitation_response": 0.05,
+        "motor_rated_voltage": 400.0,
+        "dc_capacitance": 470.0,
+        "dc_initial_voltage": 0.0,
+        "rectifier_resistance": 10.0,
+        "dc_brake_resistance": 330,
+        "chopper_threshold": 500.0,
+        "chopper_band": 40.0,
+        "chopper_response": 0.02,
+        "chopper_max_duty": 1.0,
+        "inverter_current_limit": 3.0,
+        "inverter_reactive_current_limit": 3.0,
+        "inverter_output_resistance": 5.0,
+        "inverter_conduction_resistance": 0.25,
+        "inverter_idle_loss": 3.0,
+        "inverter_min_dc_voltage": 50.0,
+        "battery_voltage": 24.0,
+        "battery_capacity_wh": 480.0,
+        "battery_initial_soc": 100.0,
+        "battery_discharge_current_limit": 20.0,
+        "battery_charge_current_limit": 10.0,
+        "battery_internal_resistance": 0.05,
+        "boost_target_voltage": 600,
+        "boost_input_power_limit": 200.0,
+        "boost_efficiency": 0.9,
+        "boost_output_current_limit": 1.0,
+        "boost_response": 0.05,
+        "boost_voltage_gain": 0.02,
+        "aux_capacitance": 470.0,
+        "aux_initial_voltage": 0.0,
+        "aux_ready_voltage": 500.0,
+        "precharge_power_limit": 100.0,
+        "precharge_efficiency": 0.85,
+        "charger_power_limit": 150.0,
+        "charger_efficiency": 0.9,
+        "charger_min_dc_voltage": 480,
+        "core_loss_resistance": 4000.0,
+        "gearbox_efficiency": 0.9,
+        "drivetrain_loss_torque": 0.1,
+        "external_supply_voltage": 400.0,
+        "exciter_active_limit": 200.0,
+        "exciter_run_active_limit": 35.0,
+        "exciter_absorption_limit": 0.0,
+        "exciter_flux_target": 0.95,
+        "maximum_magnetic_flux": 1.3,
+        "motor_current_limit_rms": 6.0,
+        "overcurrent_dwell": 0.1,
+        "auxiliary_max_voltage": 650.0,
+        "main_dc_max_voltage": 650.0,
+        "minimum_control_frequency": 5.0,
+        "frequency_accel_rate": 15.0,
+        "frequency_decel_rate": 3.0,
+        "vf_limit_response": 0.01,
+        "sequence_normal_frequency": 20.0,
+        "sequence_slowdown_1_frequency": 10.0,
+        "sequence_slowdown_2_frequency": 5.0,
+        "sequence_ready_time": 0.05,
+        "sequence_normal_hold": 0.6,
+        "sequence_slowdown_1_hold": 0.5,
+        "sequence_slowdown_2_hold": 0.4,
+        "sequence_capacitor_hold": 3.0,
+        "sequence_stop_speed": 0.005,
+        "runaway_speed_limit": 0.8,
+        "runaway_min_export_power": 20.0,
+        "runaway_dwell": 0.3,
+        "startup_frequency": 2.0,
+        "startup_flux_fraction": 0.8,
+        "startup_dwell": 0.2,
+        "startup_ramp": 0.3,
+        "dc_precharge_resistance": 150.0,
+        "dc_precharge_close_fraction": 0.9,
+        "dc_precharge_timeout": 3.0
+      },
+      "qualified_time": 0.0,
+      "rectifier_enabled": true,
+      "rejected_steps": 0,
+      "release_time": null,
+      "sequence": {
+        "name": "AUXILIARY_START",
+        "elapsed": 0.0,
+        "target_frequency": 0.0,
+        "at_target_elapsed": 0.0,
+        "runaway_elapsed": 0.0,
+        "runaway": false,
+        "overcurrent_elapsed": 0.0
+      },
+      "start_mode": "residual",
+      "startup_enabled": true,
+      "startup_status": "AUXILIARY_START",
+      "state": {
+        "time": 0.0,
+        "position": 0.0,
+        "angle": 0.0,
+        "omega": 0.0,
+        "brake_fraction": 1.0,
+        "brake_command_released": false,
+        "brake_delay_remaining": 0.0,
+        "brake_motion_target": 1.0,
+        "grounded": false,
+        "impact_speed": 0.0,
+        "impact_energy": 0.0,
+        "impact_time": 0.0
+      },
+      "support_complete": false,
+      "support_qualified_time": 0.0,
+      "switchgear": {
+        "k_cap": false,
+        "k_exc": false,
+        "k_precharge": true,
+        "k_main": false,
+        "precharge_elapsed": 0.0,
+        "fault": ""
+      },
+      "vf": {
+        "frequency_command": 0.0,
+        "voltage_command": 0.0,
+        "flux_target": 0.0,
+        "excitation_scale": 1.0,
+        "current_limited": false,
+        "flux_limited": false
+      }
+    },
+    "ui_configuration": {
+      "dynamic_mode": true,
+      "converter_mode": "Battery exciter · reviewed",
+      "excitation_mode": "Exciter only",
+      "startup_method": "Residual magnetism",
+      "automatic_profile": true,
+      "requested_duration_s": 10.0
+    },
+    "requested_frequency_sequence_hz": [
+      20.0,
+      10.0,
+      5.0
+    ],
+    "numerical_configuration": {
+      "physics_step_s": 0.002,
+      "maximum_electrical_step_s": 0.0001,
+      "telemetry_interval_s": 0.02,
+      "text_refresh_interval_s": 0.06666666666666667,
+      "animation_frame_interval_s": 0.016666666666666666
+    }
+  },
+  "csv_schema": [
+    {
+      "column": "time_s",
+      "section": "frame",
+      "path": [
+        "t"
+      ],
+      "type": "float",
+      "unit": "s"
+    },
+    {
+      "column": "replay_state_time_s",
+      "section": "state",
+      "path": [
+        "time"
+      ],
+      "type": "float",
+      "unit": "s"
+    },
+    {
+      "column": "replay_state_load_position_m",
+      "section": "state",
+      "path": [
+        "position"
+      ],
+      "type": "float",
+      "unit": "m"
+    },
+    {
+      "column": "replay_state_rotor_angle_rad",
+      "section": "state",
+      "path": [
+        "angle"
+      ],
+      "type": "float",
+      "unit": "rad"
+    },
+    {
+      "column": "replay_state_motor_speed_rad_s",
+      "section": "state",
+      "path": [
+        "omega"
+      ],
+      "type": "float",
+      "unit": "rad/s"
+    },
+    {
+      "column": "replay_state_grounded",
+      "section": "state",
+      "path": [
+        "grounded"
+      ],
+      "type": "bool",
+      "unit": ""
+    },
+    {
+      "column": "replay_state_impact_speed_m_s",
+      "section": "state",
+      "path": [
+        "impact_speed"
+      ],
+      "type": "float",
+      "unit": "m/s"
+    },
+    {
+      "column": "replay_state_impact_energy_j",
+      "section": "state",
+      "path": [
+        "impact_energy"
+      ],
+      "type": "float",
+      "unit": "J"
+    },
+    {
+      "column": "brake_released",
+      "section": "frame",
+      "path": [
+        "brake_released"
+      ],
+      "type": "bool",
+      "unit": ""
+    },
+    {
+      "column": "motor_connected",
+      "section": "frame",
+      "path": [
+        "motor_connected"
+      ],
+      "type": "bool",
+      "unit": ""
+    },
+    {
+      "column": "inverter_enabled",
+      "section": "frame",
+      "path": [
+        "inverter_enabled"
+      ],
+      "type": "bool",
+      "unit": ""
+    },
+    {
+      "column": "capacitors_enabled",
+      "section": "frame",
+      "path": [
+        "capacitors_enabled"
+      ],
+      "type": "bool",
+      "unit": ""
+    },
+    {
+      "column": "telemetry_time_s",
+      "section": "readings",
+      "path": [
+        "_time"
+      ],
+      "type": "float",
+      "unit": "s"
+    },
+    {
+      "column": "ac_bus_ready",
+      "section": "readings",
+      "path": [
+        "ac_bus_ready"
+      ],
+      "type": "bool",
+      "unit": ""
+    },
+    {
+      "column": "load_acceleration_m_s2",
+      "section": "readings",
+      "path": [
+        "acceleration"
+      ],
+      "type": "float",
+      "unit": "m/s^2"
+    },
+    {
+      "column": "rotor_angle_rad",
+      "section": "readings",
+      "path": [
+        "angle"
+      ],
+      "type": "float",
+      "unit": "rad"
+    },
+    {
+      "column": "automatic_profile",
+      "section": "readings",
+      "path": [
+        "automatic_profile"
+      ],
+      "type": "bool",
+      "unit": ""
+    },
+    {
+      "column": "aux_current_a",
+      "section": "readings",
+      "path": [
+        "aux_current"
+      ],
+      "type": "float",
+      "unit": "A"
+    },
+    {
+      "column": "aux_energy_j",
+      "section": "readings",
+      "path": [
+        "aux_energy"
+      ],
+      "type": "float",
+      "unit": "J"
+    },
+    {
+      "column": "aux_input_energy_j",
+      "section": "readings",
+      "path": [
+        "aux_input_energy"
+      ],
+      "type": "float",
+      "unit": "J"
+    },
+    {
+      "column": "aux_output_energy_j",
+      "section": "readings",
+      "path": [
+        "aux_output_energy"
+      ],
+      "type": "float",
+      "unit": "J"
+    },
+    {
+      "column": "aux_power_w",
+      "section": "readings",
+      "path": [
+        "aux_power"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "aux_voltage_v",
+      "section": "readings",
+      "path": [
+        "aux_voltage"
+      ],
+      "type": "float",
+      "unit": "V"
+    },
+    {
+      "column": "auxiliary_hv_ready",
+      "section": "readings",
+      "path": [
+        "auxiliary_hv_ready"
+      ],
+      "type": "bool",
+      "unit": ""
+    },
+    {
+      "column": "battery_current_a",
+      "section": "readings",
+      "path": [
+        "battery_current"
+      ],
+      "type": "float",
+      "unit": "A"
+    },
+    {
+      "column": "battery_energy_j",
+      "section": "readings",
+      "path": [
+        "battery_energy"
+      ],
+      "type": "float",
+      "unit": "J"
+    },
+    {
+      "column": "battery_loss_w",
+      "section": "readings",
+      "path": [
+        "battery_loss"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "battery_loss_energy_j",
+      "section": "readings",
+      "path": [
+        "battery_loss_energy"
+      ],
+      "type": "float",
+      "unit": "J"
+    },
+    {
+      "column": "battery_ok",
+      "section": "readings",
+      "path": [
+        "battery_ok"
+      ],
+      "type": "bool",
+      "unit": ""
+    },
+    {
+      "column": "battery_power_w",
+      "section": "readings",
+      "path": [
+        "battery_power"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "battery_remaining_wh",
+      "section": "readings",
+      "path": [
+        "battery_remaining_wh"
+      ],
+      "type": "float",
+      "unit": ""
+    },
+    {
+      "column": "battery_soc",
+      "section": "readings",
+      "path": [
+        "battery_soc"
+      ],
+      "type": "float",
+      "unit": ""
+    },
+    {
+      "column": "battery_voltage_v",
+      "section": "readings",
+      "path": [
+        "battery_voltage"
+      ],
+      "type": "float",
+      "unit": "V"
+    },
+    {
+      "column": "beyond_peak",
+      "section": "readings",
+      "path": [
+        "beyond_peak"
+      ],
+      "type": "bool",
+      "unit": ""
+    },
+    {
+      "column": "boost_available_current_a",
+      "section": "readings",
+      "path": [
+        "boost_available_current"
+      ],
+      "type": "float",
+      "unit": "A"
+    },
+    {
+      "column": "boost_enabled",
+      "section": "readings",
+      "path": [
+        "boost_enabled"
+      ],
+      "type": "bool",
+      "unit": ""
+    },
+    {
+      "column": "boost_input_current_a",
+      "section": "readings",
+      "path": [
+        "boost_input_current"
+      ],
+      "type": "float",
+      "unit": "A"
+    },
+    {
+      "column": "boost_input_power_w",
+      "section": "readings",
+      "path": [
+        "boost_input_power"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "boost_loss_w",
+      "section": "readings",
+      "path": [
+        "boost_loss"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "boost_loss_energy_j",
+      "section": "readings",
+      "path": [
+        "boost_loss_energy"
+      ],
+      "type": "float",
+      "unit": "J"
+    },
+    {
+      "column": "boost_output_current_a",
+      "section": "readings",
+      "path": [
+        "boost_output_current"
+      ],
+      "type": "float",
+      "unit": "A"
+    },
+    {
+      "column": "boost_output_voltage_v",
+      "section": "readings",
+      "path": [
+        "boost_output_voltage"
+      ],
+      "type": "float",
+      "unit": "V"
+    },
+    {
+      "column": "boost_power_w",
+      "section": "readings",
+      "path": [
+        "boost_power"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "boost_requested_current_a",
+      "section": "readings",
+      "path": [
+        "boost_requested_current"
+      ],
+      "type": "float",
+      "unit": "A"
+    },
+    {
+      "column": "boost_status",
+      "section": "readings",
+      "path": [
+        "boost_status"
+      ],
+      "type": "string",
+      "unit": ""
+    },
+    {
+      "column": "brake_capacity",
+      "section": "readings",
+      "path": [
+        "brake_capacity"
+      ],
+      "type": "float",
+      "unit": ""
+    },
+    {
+      "column": "brake_command",
+      "section": "readings",
+      "path": [
+        "brake_command"
+      ],
+      "type": "string",
+      "unit": ""
+    },
+    {
+      "column": "brake_delay_remaining_s",
+      "section": "readings",
+      "path": [
+        "brake_delay_remaining"
+      ],
+      "type": "float",
+      "unit": "s"
+    },
+    {
+      "column": "brake_energy_j",
+      "section": "readings",
+      "path": [
+        "brake_energy"
+      ],
+      "type": "float",
+      "unit": "J"
+    },
+    {
+      "column": "brake_physical_state",
+      "section": "readings",
+      "path": [
+        "brake_physical_state"
+      ],
+      "type": "string",
+      "unit": ""
+    },
+    {
+      "column": "brake_physically_released",
+      "section": "readings",
+      "path": [
+        "brake_physically_released"
+      ],
+      "type": "bool",
+      "unit": ""
+    },
+    {
+      "column": "brake_power_w",
+      "section": "readings",
+      "path": [
+        "brake_power"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "ac_frequency_hz",
+      "section": "readings",
+      "path": [
+        "bus_frequency"
+      ],
+      "type": "float",
+      "unit": "Hz"
+    },
+    {
+      "column": "capacitor_energy_j",
+      "section": "readings",
+      "path": [
+        "capacitor_energy"
+      ],
+      "type": "float",
+      "unit": "J"
+    },
+    {
+      "column": "capacitor_line_current_a",
+      "section": "readings",
+      "path": [
+        "capacitor_line_current"
+      ],
+      "type": "float",
+      "unit": "A"
+    },
+    {
+      "column": "capacitor_reactive_supply_var",
+      "section": "readings",
+      "path": [
+        "capacitor_reactive_supply"
+      ],
+      "type": "float",
+      "unit": "var"
+    },
+    {
+      "column": "charger_charge_current_a",
+      "section": "readings",
+      "path": [
+        "charger_charge_current"
+      ],
+      "type": "float",
+      "unit": "A"
+    },
+    {
+      "column": "charger_enabled",
+      "section": "readings",
+      "path": [
+        "charger_enabled"
+      ],
+      "type": "bool",
+      "unit": ""
+    },
+    {
+      "column": "charger_energy_j",
+      "section": "readings",
+      "path": [
+        "charger_energy"
+      ],
+      "type": "float",
+      "unit": "J"
+    },
+    {
+      "column": "charger_input_power_w",
+      "section": "readings",
+      "path": [
+        "charger_input_power"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "charger_loss_w",
+      "section": "readings",
+      "path": [
+        "charger_loss"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "charger_loss_energy_j",
+      "section": "readings",
+      "path": [
+        "charger_loss_energy"
+      ],
+      "type": "float",
+      "unit": "J"
+    },
+    {
+      "column": "charger_output_power_w",
+      "section": "readings",
+      "path": [
+        "charger_output_power"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "charger_power_w",
+      "section": "readings",
+      "path": [
+        "charger_power"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "chopper_active",
+      "section": "readings",
+      "path": [
+        "chopper_active"
+      ],
+      "type": "bool",
+      "unit": ""
+    },
+    {
+      "column": "chopper_command",
+      "section": "readings",
+      "path": [
+        "chopper_command"
+      ],
+      "type": "float",
+      "unit": ""
+    },
+    {
+      "column": "chopper_duty",
+      "section": "readings",
+      "path": [
+        "chopper_duty"
+      ],
+      "type": "float",
+      "unit": ""
+    },
+    {
+      "column": "chopper_enabled",
+      "section": "readings",
+      "path": [
+        "chopper_enabled"
+      ],
+      "type": "bool",
+      "unit": ""
+    },
+    {
+      "column": "clearance",
+      "section": "readings",
+      "path": [
+        "clearance"
+      ],
+      "type": "float",
+      "unit": ""
+    },
+    {
+      "column": "compensation_fraction",
+      "section": "readings",
+      "path": [
+        "compensation_fraction"
+      ],
+      "type": "int",
+      "unit": ""
+    },
+    {
+      "column": "control_power_available_w",
+      "section": "readings",
+      "path": [
+        "control_power_available"
+      ],
+      "type": "bool",
+      "unit": "W"
+    },
+    {
+      "column": "copper_energy_j",
+      "section": "readings",
+      "path": [
+        "copper_energy"
+      ],
+      "type": "float",
+      "unit": "J"
+    },
+    {
+      "column": "core_energy_j",
+      "section": "readings",
+      "path": [
+        "core_energy"
+      ],
+      "type": "float",
+      "unit": "J"
+    },
+    {
+      "column": "core_loss_w",
+      "section": "readings",
+      "path": [
+        "core_loss"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "dc_brake_energy_j",
+      "section": "readings",
+      "path": [
+        "dc_brake_energy"
+      ],
+      "type": "float",
+      "unit": "J"
+    },
+    {
+      "column": "resistor_power_w",
+      "section": "readings",
+      "path": [
+        "dc_brake_power"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "dc_capacitor_current_a",
+      "section": "readings",
+      "path": [
+        "dc_capacitor_current"
+      ],
+      "type": "float",
+      "unit": "A"
+    },
+    {
+      "column": "dc_capacitor_power_w",
+      "section": "readings",
+      "path": [
+        "dc_capacitor_power"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "dc_energy_j",
+      "section": "readings",
+      "path": [
+        "dc_energy"
+      ],
+      "type": "float",
+      "unit": "J"
+    },
+    {
+      "column": "dc_exciter",
+      "section": "readings",
+      "path": [
+        "dc_exciter"
+      ],
+      "type": "bool",
+      "unit": ""
+    },
+    {
+      "column": "dc_input_energy_j",
+      "section": "readings",
+      "path": [
+        "dc_input_energy"
+      ],
+      "type": "float",
+      "unit": "J"
+    },
+    {
+      "column": "dc_input_power_w",
+      "section": "readings",
+      "path": [
+        "dc_input_power"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "dc_link_ready",
+      "section": "readings",
+      "path": [
+        "dc_link_ready"
+      ],
+      "type": "bool",
+      "unit": ""
+    },
+    {
+      "column": "dc_precharge_loss_energy_j",
+      "section": "readings",
+      "path": [
+        "dc_precharge_loss_energy"
+      ],
+      "type": "float",
+      "unit": "J"
+    },
+    {
+      "column": "dc_precharge_power_w",
+      "section": "readings",
+      "path": [
+        "dc_precharge_power"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "dc_link_voltage_v",
+      "section": "readings",
+      "path": [
+        "dc_voltage"
+      ],
+      "type": "float",
+      "unit": "V DC"
+    },
+    {
+      "column": "drivetrain_energy_j",
+      "section": "readings",
+      "path": [
+        "drivetrain_energy"
+      ],
+      "type": "float",
+      "unit": "J"
+    },
+    {
+      "column": "drivetrain_power_w",
+      "section": "readings",
+      "path": [
+        "drivetrain_power"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "effective_peak_torque_nm",
+      "section": "readings",
+      "path": [
+        "effective_peak_torque"
+      ],
+      "type": "int",
+      "unit": "N m"
+    },
+    {
+      "column": "generated_active_power_w",
+      "section": "readings",
+      "path": [
+        "electrical_export"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "electrical_input",
+      "section": "readings",
+      "path": [
+        "electrical_input"
+      ],
+      "type": "float",
+      "unit": ""
+    },
+    {
+      "column": "energy_residual_j",
+      "section": "readings",
+      "path": [
+        "energy_residual"
+      ],
+      "type": "float",
+      "unit": "J"
+    },
+    {
+      "column": "excitation_mode",
+      "section": "readings",
+      "path": [
+        "excitation_mode"
+      ],
+      "type": "string",
+      "unit": ""
+    },
+    {
+      "column": "excitation_scale",
+      "section": "readings",
+      "path": [
+        "excitation_scale"
+      ],
+      "type": "float",
+      "unit": ""
+    },
+    {
+      "column": "exciter_solver_iterations",
+      "section": "readings",
+      "path": [
+        "exciter_solver_iterations"
+      ],
+      "type": "int",
+      "unit": ""
+    },
+    {
+      "column": "exciter_solver_residual",
+      "section": "readings",
+      "path": [
+        "exciter_solver_residual"
+      ],
+      "type": "float",
+      "unit": ""
+    },
+    {
+      "column": "exciter_solver_status",
+      "section": "readings",
+      "path": [
+        "exciter_solver_status"
+      ],
+      "type": "string",
+      "unit": ""
+    },
+    {
+      "column": "external_exciter",
+      "section": "readings",
+      "path": [
+        "external_exciter"
+      ],
+      "type": "bool",
+      "unit": ""
+    },
+    {
+      "column": "external_supply_power_w",
+      "section": "readings",
+      "path": [
+        "external_supply_power"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "fault",
+      "section": "readings",
+      "path": [
+        "fault"
+      ],
+      "type": "string",
+      "unit": ""
+    },
+    {
+      "column": "field_ready",
+      "section": "readings",
+      "path": [
+        "field_ready"
+      ],
+      "type": "bool",
+      "unit": ""
+    },
+    {
+      "column": "flux_angle",
+      "section": "readings",
+      "path": [
+        "flux_angle"
+      ],
+      "type": "float",
+      "unit": ""
+    },
+    {
+      "column": "magnetic_flux_wb_turn",
+      "section": "readings",
+      "path": [
+        "flux_magnitude"
+      ],
+      "type": "float",
+      "unit": "Wb turn"
+    },
+    {
+      "column": "magnetic_flux_target_wb_turn",
+      "section": "readings",
+      "path": [
+        "flux_target"
+      ],
+      "type": "float",
+      "unit": "Wb turn"
+    },
+    {
+      "column": "frequency_command_applicable_hz",
+      "section": "readings",
+      "path": [
+        "frequency_command_applicable"
+      ],
+      "type": "bool",
+      "unit": "Hz"
+    },
+    {
+      "column": "frequency_target_hz",
+      "section": "readings",
+      "path": [
+        "frequency_target"
+      ],
+      "type": "float",
+      "unit": "Hz"
+    },
+    {
+      "column": "friction_energy_j",
+      "section": "readings",
+      "path": [
+        "friction_energy"
+      ],
+      "type": "float",
+      "unit": "J"
+    },
+    {
+      "column": "friction_power_w",
+      "section": "readings",
+      "path": [
+        "friction_power"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "gear_energy_j",
+      "section": "readings",
+      "path": [
+        "gear_energy"
+      ],
+      "type": "float",
+      "unit": "J"
+    },
+    {
+      "column": "gear_power_w",
+      "section": "readings",
+      "path": [
+        "gear_power"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "gravity_power_w",
+      "section": "readings",
+      "path": [
+        "gravity_power"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "inverter_ac_voltage_v",
+      "section": "readings",
+      "path": [
+        "inverter_ac_voltage"
+      ],
+      "type": "float",
+      "unit": "V"
+    },
+    {
+      "column": "inverter_active_current_a",
+      "section": "readings",
+      "path": [
+        "inverter_active_current"
+      ],
+      "type": "float",
+      "unit": "A"
+    },
+    {
+      "column": "inverter_apparent_power_w",
+      "section": "readings",
+      "path": [
+        "inverter_apparent_power"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "inverter_current_a",
+      "section": "readings",
+      "path": [
+        "inverter_current"
+      ],
+      "type": "float",
+      "unit": "A"
+    },
+    {
+      "column": "inverter_dc_power_w",
+      "section": "readings",
+      "path": [
+        "inverter_dc_power"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "inverter_loss_w",
+      "section": "readings",
+      "path": [
+        "inverter_loss"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "inverter_loss_energy_j",
+      "section": "readings",
+      "path": [
+        "inverter_loss_energy"
+      ],
+      "type": "float",
+      "unit": "J"
+    },
+    {
+      "column": "inverter_reactive_current_var",
+      "section": "readings",
+      "path": [
+        "inverter_reactive_current"
+      ],
+      "type": "float",
+      "unit": "var"
+    },
+    {
+      "column": "inverter_reactive_power_var",
+      "section": "readings",
+      "path": [
+        "inverter_reactive_supply"
+      ],
+      "type": "float",
+      "unit": "var"
+    },
+    {
+      "column": "inverter_real_power_w",
+      "section": "readings",
+      "path": [
+        "inverter_real_power"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "inverter_status",
+      "section": "readings",
+      "path": [
+        "inverter_status"
+      ],
+      "type": "string",
+      "unit": ""
+    },
+    {
+      "column": "k_cap",
+      "section": "readings",
+      "path": [
+        "k_cap"
+      ],
+      "type": "bool",
+      "unit": ""
+    },
+    {
+      "column": "k_exc",
+      "section": "readings",
+      "path": [
+        "k_exc"
+      ],
+      "type": "bool",
+      "unit": ""
+    },
+    {
+      "column": "k_main",
+      "section": "readings",
+      "path": [
+        "k_main"
+      ],
+      "type": "bool",
+      "unit": ""
+    },
+    {
+      "column": "k_precharge",
+      "section": "readings",
+      "path": [
+        "k_precharge"
+      ],
+      "type": "bool",
+      "unit": ""
+    },
+    {
+      "column": "kinetic_energy_j",
+      "section": "readings",
+      "path": [
+        "kinetic_energy"
+      ],
+      "type": "float",
+      "unit": "J"
+    },
+    {
+      "column": "ac_voltage_v_ll_rms",
+      "section": "readings",
+      "path": [
+        "line_voltage"
+      ],
+      "type": "float",
+      "unit": "V LL RMS"
+    },
+    {
+      "column": "load_energy_j",
+      "section": "readings",
+      "path": [
+        "load_energy"
+      ],
+      "type": "int",
+      "unit": "J"
+    },
+    {
+      "column": "load_power_w",
+      "section": "readings",
+      "path": [
+        "load_power"
+      ],
+      "type": "int",
+      "unit": "W"
+    },
+    {
+      "column": "lowering",
+      "section": "readings",
+      "path": [
+        "lowering"
+      ],
+      "type": "bool",
+      "unit": ""
+    },
+    {
+      "column": "motor_active_current_a_rms",
+      "section": "readings",
+      "path": [
+        "machine_active_current"
+      ],
+      "type": "float",
+      "unit": "A RMS"
+    },
+    {
+      "column": "machine_copper_loss_w",
+      "section": "readings",
+      "path": [
+        "machine_copper_loss"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "machine_core_loss_w",
+      "section": "readings",
+      "path": [
+        "machine_core_loss"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "machine_current_limit_a",
+      "section": "readings",
+      "path": [
+        "machine_current_limit"
+      ],
+      "type": "float",
+      "unit": "A"
+    },
+    {
+      "column": "motor_current_a_rms",
+      "section": "readings",
+      "path": [
+        "machine_line_current"
+      ],
+      "type": "float",
+      "unit": "A RMS"
+    },
+    {
+      "column": "motor_reactive_current_a_rms",
+      "section": "readings",
+      "path": [
+        "machine_reactive_current"
+      ],
+      "type": "float",
+      "unit": "A RMS"
+    },
+    {
+      "column": "machine_reactive_demand_var",
+      "section": "readings",
+      "path": [
+        "machine_reactive_demand"
+      ],
+      "type": "float",
+      "unit": "var"
+    },
+    {
+      "column": "magnetic_energy_j",
+      "section": "readings",
+      "path": [
+        "magnetic_energy"
+      ],
+      "type": "float",
+      "unit": "J"
+    },
+    {
+      "column": "magnetic_storage_power_w",
+      "section": "readings",
+      "path": [
+        "magnetic_storage_power"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "main_dc_connection",
+      "section": "readings",
+      "path": [
+        "main_dc_connection"
+      ],
+      "type": "string",
+      "unit": ""
+    },
+    {
+      "column": "matching_capacitance",
+      "section": "readings",
+      "path": [
+        "matching_capacitance"
+      ],
+      "type": "int",
+      "unit": ""
+    },
+    {
+      "column": "maximum_magnetic_flux_wb_turn",
+      "section": "readings",
+      "path": [
+        "maximum_flux"
+      ],
+      "type": "float",
+      "unit": "Wb turn"
+    },
+    {
+      "column": "motor_mode",
+      "section": "readings",
+      "path": [
+        "motor_mode"
+      ],
+      "type": "string",
+      "unit": ""
+    },
+    {
+      "column": "motor_shaft_power_w",
+      "section": "readings",
+      "path": [
+        "motor_shaft_power"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "motor_torque_nm",
+      "section": "readings",
+      "path": [
+        "motor_torque"
+      ],
+      "type": "float",
+      "unit": "N m"
+    },
+    {
+      "column": "motor_speed_rad_s",
+      "section": "readings",
+      "path": [
+        "omega"
+      ],
+      "type": "float",
+      "unit": "rad/s"
+    },
+    {
+      "column": "overcurrent_elapsed_a",
+      "section": "readings",
+      "path": [
+        "overcurrent_elapsed"
+      ],
+      "type": "float",
+      "unit": "A"
+    },
+    {
+      "column": "load_position_m",
+      "section": "readings",
+      "path": [
+        "position"
+      ],
+      "type": "float",
+      "unit": "m"
+    },
+    {
+      "column": "potential_energy_j",
+      "section": "readings",
+      "path": [
+        "potential_energy"
+      ],
+      "type": "float",
+      "unit": "J"
+    },
+    {
+      "column": "power_diagnostics__components__ac_bus__energy_j",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "ac_bus",
+        "energy"
+      ],
+      "type": "float",
+      "unit": "J"
+    },
+    {
+      "column": "power_diagnostics__components__ac_bus__heat_w",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "ac_bus",
+        "heat"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "power_diagnostics__components__ac_bus__input",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "ac_bus",
+        "input"
+      ],
+      "type": "float",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__components__ac_bus__output",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "ac_bus",
+        "output"
+      ],
+      "type": "float",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__components__ac_bus__residual",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "ac_bus",
+        "residual"
+      ],
+      "type": "float",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__components__ac_bus__storage_rate_w",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "ac_bus",
+        "storage_rate"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "power_diagnostics__components__aux_link__energy_j",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "aux_link",
+        "energy"
+      ],
+      "type": "float",
+      "unit": "J"
+    },
+    {
+      "column": "power_diagnostics__components__aux_link__heat_w",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "aux_link",
+        "heat"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "power_diagnostics__components__aux_link__input",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "aux_link",
+        "input"
+      ],
+      "type": "float",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__components__aux_link__output",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "aux_link",
+        "output"
+      ],
+      "type": "float",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__components__aux_link__residual",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "aux_link",
+        "residual"
+      ],
+      "type": "float",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__components__aux_link__storage_rate_w",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "aux_link",
+        "storage_rate"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "power_diagnostics__components__battery__energy_j",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "battery",
+        "energy"
+      ],
+      "type": "float",
+      "unit": "J"
+    },
+    {
+      "column": "power_diagnostics__components__battery__heat_w",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "battery",
+        "heat"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "power_diagnostics__components__battery__input",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "battery",
+        "input"
+      ],
+      "type": "float",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__components__battery__output",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "battery",
+        "output"
+      ],
+      "type": "float",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__components__battery__residual",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "battery",
+        "residual"
+      ],
+      "type": "float",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__components__battery__storage_rate_w",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "battery",
+        "storage_rate"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "power_diagnostics__components__boost__energy_j",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "boost",
+        "energy"
+      ],
+      "type": "float",
+      "unit": "J"
+    },
+    {
+      "column": "power_diagnostics__components__boost__heat_w",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "boost",
+        "heat"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "power_diagnostics__components__boost__input",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "boost",
+        "input"
+      ],
+      "type": "float",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__components__boost__output",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "boost",
+        "output"
+      ],
+      "type": "float",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__components__boost__residual",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "boost",
+        "residual"
+      ],
+      "type": "float",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__components__boost__storage_rate_w",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "boost",
+        "storage_rate"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "power_diagnostics__components__capacitor__energy_j",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "capacitor",
+        "energy"
+      ],
+      "type": "float",
+      "unit": "J"
+    },
+    {
+      "column": "power_diagnostics__components__capacitor__heat_w",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "capacitor",
+        "heat"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "power_diagnostics__components__capacitor__input",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "capacitor",
+        "input"
+      ],
+      "type": "float",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__components__capacitor__output",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "capacitor",
+        "output"
+      ],
+      "type": "float",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__components__capacitor__residual",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "capacitor",
+        "residual"
+      ],
+      "type": "float",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__components__capacitor__storage_rate_w",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "capacitor",
+        "storage_rate"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "power_diagnostics__components__charger__energy_j",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "charger",
+        "energy"
+      ],
+      "type": "float",
+      "unit": "J"
+    },
+    {
+      "column": "power_diagnostics__components__charger__heat_w",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "charger",
+        "heat"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "power_diagnostics__components__charger__input",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "charger",
+        "input"
+      ],
+      "type": "float",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__components__charger__output",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "charger",
+        "output"
+      ],
+      "type": "float",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__components__charger__residual",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "charger",
+        "residual"
+      ],
+      "type": "float",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__components__charger__storage_rate_w",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "charger",
+        "storage_rate"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "power_diagnostics__components__chopper__energy_j",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "chopper",
+        "energy"
+      ],
+      "type": "float",
+      "unit": "J"
+    },
+    {
+      "column": "power_diagnostics__components__chopper__heat_w",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "chopper",
+        "heat"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "power_diagnostics__components__chopper__input",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "chopper",
+        "input"
+      ],
+      "type": "float",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__components__chopper__output",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "chopper",
+        "output"
+      ],
+      "type": "float",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__components__chopper__residual",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "chopper",
+        "residual"
+      ],
+      "type": "float",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__components__chopper__storage_rate_w",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "chopper",
+        "storage_rate"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "power_diagnostics__components__dc_link__energy_j",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "dc_link",
+        "energy"
+      ],
+      "type": "float",
+      "unit": "J"
+    },
+    {
+      "column": "power_diagnostics__components__dc_link__heat_w",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "dc_link",
+        "heat"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "power_diagnostics__components__dc_link__input",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "dc_link",
+        "input"
+      ],
+      "type": "float",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__components__dc_link__output",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "dc_link",
+        "output"
+      ],
+      "type": "float",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__components__dc_link__residual",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "dc_link",
+        "residual"
+      ],
+      "type": "float",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__components__dc_link__storage_rate_w",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "dc_link",
+        "storage_rate"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "power_diagnostics__components__exciter__energy_j",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "exciter",
+        "energy"
+      ],
+      "type": "float",
+      "unit": "J"
+    },
+    {
+      "column": "power_diagnostics__components__exciter__heat_w",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "exciter",
+        "heat"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "power_diagnostics__components__exciter__input",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "exciter",
+        "input"
+      ],
+      "type": "float",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__components__exciter__output",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "exciter",
+        "output"
+      ],
+      "type": "float",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__components__exciter__residual",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "exciter",
+        "residual"
+      ],
+      "type": "float",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__components__exciter__storage_rate_w",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "exciter",
+        "storage_rate"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "power_diagnostics__components__gear__energy_j",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "gear",
+        "energy"
+      ],
+      "type": "float",
+      "unit": "J"
+    },
+    {
+      "column": "power_diagnostics__components__gear__heat_w",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "gear",
+        "heat"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "power_diagnostics__components__gear__input",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "gear",
+        "input"
+      ],
+      "type": "float",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__components__gear__output",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "gear",
+        "output"
+      ],
+      "type": "float",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__components__gear__residual",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "gear",
+        "residual"
+      ],
+      "type": "float",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__components__gear__storage_rate_w",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "gear",
+        "storage_rate"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "power_diagnostics__components__load__energy_j",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "load",
+        "energy"
+      ],
+      "type": "float",
+      "unit": "J"
+    },
+    {
+      "column": "power_diagnostics__components__load__heat_w",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "load",
+        "heat"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "power_diagnostics__components__load__input",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "load",
+        "input"
+      ],
+      "type": "int",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__components__load__output",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "load",
+        "output"
+      ],
+      "type": "float",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__components__load__residual",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "load",
+        "residual"
+      ],
+      "type": "float",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__components__load__storage_rate_w",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "load",
+        "storage_rate"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "power_diagnostics__components__machine__copper",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "machine",
+        "copper"
+      ],
+      "type": "float",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__components__machine__core",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "machine",
+        "core"
+      ],
+      "type": "float",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__components__machine__energy_j",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "machine",
+        "energy"
+      ],
+      "type": "float",
+      "unit": "J"
+    },
+    {
+      "column": "power_diagnostics__components__machine__heat_w",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "machine",
+        "heat"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "power_diagnostics__components__machine__input",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "machine",
+        "input"
+      ],
+      "type": "float",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__components__machine__output",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "machine",
+        "output"
+      ],
+      "type": "float",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__components__machine__residual",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "machine",
+        "residual"
+      ],
+      "type": "float",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__components__machine__storage_rate_w",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "machine",
+        "storage_rate"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "power_diagnostics__components__precharge_resistor__energy_j",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "precharge_resistor",
+        "energy"
+      ],
+      "type": "float",
+      "unit": "J"
+    },
+    {
+      "column": "power_diagnostics__components__precharge_resistor__heat_w",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "precharge_resistor",
+        "heat"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "power_diagnostics__components__precharge_resistor__input",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "precharge_resistor",
+        "input"
+      ],
+      "type": "float",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__components__precharge_resistor__output",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "precharge_resistor",
+        "output"
+      ],
+      "type": "float",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__components__precharge_resistor__residual",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "precharge_resistor",
+        "residual"
+      ],
+      "type": "float",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__components__precharge_resistor__storage_rate_w",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "precharge_resistor",
+        "storage_rate"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "power_diagnostics__components__rectifier__energy_j",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "rectifier",
+        "energy"
+      ],
+      "type": "float",
+      "unit": "J"
+    },
+    {
+      "column": "power_diagnostics__components__rectifier__heat_w",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "rectifier",
+        "heat"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "power_diagnostics__components__rectifier__input",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "rectifier",
+        "input"
+      ],
+      "type": "float",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__components__rectifier__output",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "rectifier",
+        "output"
+      ],
+      "type": "float",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__components__rectifier__residual",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "rectifier",
+        "residual"
+      ],
+      "type": "float",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__components__rectifier__storage_rate_w",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "rectifier",
+        "storage_rate"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "power_diagnostics__components__resistor__energy_j",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "resistor",
+        "energy"
+      ],
+      "type": "float",
+      "unit": "J"
+    },
+    {
+      "column": "power_diagnostics__components__resistor__heat_w",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "resistor",
+        "heat"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "power_diagnostics__components__resistor__input",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "resistor",
+        "input"
+      ],
+      "type": "float",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__components__resistor__output",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "resistor",
+        "output"
+      ],
+      "type": "float",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__components__resistor__residual",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "resistor",
+        "residual"
+      ],
+      "type": "float",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__components__resistor__storage_rate_w",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "components",
+        "resistor",
+        "storage_rate"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "power_diagnostics__connections__aux_bus__active_current_a",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "aux_bus",
+        "active_current"
+      ],
+      "type": "float",
+      "unit": "A"
+    },
+    {
+      "column": "power_diagnostics__connections__aux_bus__current_a",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "aux_bus",
+        "current"
+      ],
+      "type": "float",
+      "unit": "A"
+    },
+    {
+      "column": "power_diagnostics__connections__aux_bus__direction",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "aux_bus",
+        "direction"
+      ],
+      "type": "int",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__connections__aux_bus__equivalent",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "aux_bus",
+        "equivalent"
+      ],
+      "type": "bool",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__connections__aux_bus__kind",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "aux_bus",
+        "kind"
+      ],
+      "type": "string",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__connections__aux_bus__power_w",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "aux_bus",
+        "power"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "power_diagnostics__connections__aux_bus__reactive_var",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "aux_bus",
+        "reactive"
+      ],
+      "type": "float",
+      "unit": "var"
+    },
+    {
+      "column": "power_diagnostics__connections__aux_bus__reactive_current_var",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "aux_bus",
+        "reactive_current"
+      ],
+      "type": "float",
+      "unit": "var"
+    },
+    {
+      "column": "power_diagnostics__connections__aux_bus__voltage_v",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "aux_bus",
+        "voltage"
+      ],
+      "type": "float",
+      "unit": "V"
+    },
+    {
+      "column": "power_diagnostics__connections__aux_exciter__current_a",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "aux_exciter",
+        "current"
+      ],
+      "type": "float",
+      "unit": "A"
+    },
+    {
+      "column": "power_diagnostics__connections__aux_exciter__direction",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "aux_exciter",
+        "direction"
+      ],
+      "type": "int",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__connections__aux_exciter__kind",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "aux_exciter",
+        "kind"
+      ],
+      "type": "string",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__connections__aux_exciter__power_w",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "aux_exciter",
+        "power"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "power_diagnostics__connections__aux_exciter__voltage_v",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "aux_exciter",
+        "voltage"
+      ],
+      "type": "float",
+      "unit": "V"
+    },
+    {
+      "column": "power_diagnostics__connections__battery_boost__current_a",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "battery_boost",
+        "current"
+      ],
+      "type": "float",
+      "unit": "A"
+    },
+    {
+      "column": "power_diagnostics__connections__battery_boost__direction",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "battery_boost",
+        "direction"
+      ],
+      "type": "int",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__connections__battery_boost__kind",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "battery_boost",
+        "kind"
+      ],
+      "type": "string",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__connections__battery_boost__power_w",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "battery_boost",
+        "power"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "power_diagnostics__connections__battery_boost__voltage_v",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "battery_boost",
+        "voltage"
+      ],
+      "type": "float",
+      "unit": "V"
+    },
+    {
+      "column": "power_diagnostics__connections__battery_terminal__current_a",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "battery_terminal",
+        "current"
+      ],
+      "type": "float",
+      "unit": "A"
+    },
+    {
+      "column": "power_diagnostics__connections__battery_terminal__direction",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "battery_terminal",
+        "direction"
+      ],
+      "type": "int",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__connections__battery_terminal__kind",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "battery_terminal",
+        "kind"
+      ],
+      "type": "string",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__connections__battery_terminal__power_w",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "battery_terminal",
+        "power"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "power_diagnostics__connections__battery_terminal__voltage_v",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "battery_terminal",
+        "voltage"
+      ],
+      "type": "float",
+      "unit": "V"
+    },
+    {
+      "column": "power_diagnostics__connections__boost_aux__current_a",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "boost_aux",
+        "current"
+      ],
+      "type": "float",
+      "unit": "A"
+    },
+    {
+      "column": "power_diagnostics__connections__boost_aux__direction",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "boost_aux",
+        "direction"
+      ],
+      "type": "int",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__connections__boost_aux__kind",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "boost_aux",
+        "kind"
+      ],
+      "type": "string",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__connections__boost_aux__power_w",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "boost_aux",
+        "power"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "power_diagnostics__connections__boost_aux__voltage_v",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "boost_aux",
+        "voltage"
+      ],
+      "type": "float",
+      "unit": "V"
+    },
+    {
+      "column": "power_diagnostics__connections__boost_exciter__current_a",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "boost_exciter",
+        "current"
+      ],
+      "type": "float",
+      "unit": "A"
+    },
+    {
+      "column": "power_diagnostics__connections__boost_exciter__direction",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "boost_exciter",
+        "direction"
+      ],
+      "type": "int",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__connections__boost_exciter__kind",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "boost_exciter",
+        "kind"
+      ],
+      "type": "string",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__connections__boost_exciter__power_w",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "boost_exciter",
+        "power"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "power_diagnostics__connections__boost_exciter__voltage_v",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "boost_exciter",
+        "voltage"
+      ],
+      "type": "float",
+      "unit": "V"
+    },
+    {
+      "column": "power_diagnostics__connections__bus_capacitor__active_current_a",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "bus_capacitor",
+        "active_current"
+      ],
+      "type": "float",
+      "unit": "A"
+    },
+    {
+      "column": "power_diagnostics__connections__bus_capacitor__current_a",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "bus_capacitor",
+        "current"
+      ],
+      "type": "float",
+      "unit": "A"
+    },
+    {
+      "column": "power_diagnostics__connections__bus_capacitor__direction",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "bus_capacitor",
+        "direction"
+      ],
+      "type": "int",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__connections__bus_capacitor__equivalent",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "bus_capacitor",
+        "equivalent"
+      ],
+      "type": "bool",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__connections__bus_capacitor__kind",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "bus_capacitor",
+        "kind"
+      ],
+      "type": "string",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__connections__bus_capacitor__power_w",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "bus_capacitor",
+        "power"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "power_diagnostics__connections__bus_capacitor__reactive_var",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "bus_capacitor",
+        "reactive"
+      ],
+      "type": "float",
+      "unit": "var"
+    },
+    {
+      "column": "power_diagnostics__connections__bus_capacitor__reactive_current_var",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "bus_capacitor",
+        "reactive_current"
+      ],
+      "type": "float",
+      "unit": "var"
+    },
+    {
+      "column": "power_diagnostics__connections__bus_capacitor__voltage_v",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "bus_capacitor",
+        "voltage"
+      ],
+      "type": "float",
+      "unit": "V"
+    },
+    {
+      "column": "power_diagnostics__connections__bus_rectifier__active_current_a",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "bus_rectifier",
+        "active_current"
+      ],
+      "type": "float",
+      "unit": "A"
+    },
+    {
+      "column": "power_diagnostics__connections__bus_rectifier__current_a",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "bus_rectifier",
+        "current"
+      ],
+      "type": "float",
+      "unit": "A"
+    },
+    {
+      "column": "power_diagnostics__connections__bus_rectifier__direction",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "bus_rectifier",
+        "direction"
+      ],
+      "type": "int",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__connections__bus_rectifier__equivalent",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "bus_rectifier",
+        "equivalent"
+      ],
+      "type": "bool",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__connections__bus_rectifier__kind",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "bus_rectifier",
+        "kind"
+      ],
+      "type": "string",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__connections__bus_rectifier__power_w",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "bus_rectifier",
+        "power"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "power_diagnostics__connections__bus_rectifier__reactive_var",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "bus_rectifier",
+        "reactive"
+      ],
+      "type": "float",
+      "unit": "var"
+    },
+    {
+      "column": "power_diagnostics__connections__bus_rectifier__reactive_current_var",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "bus_rectifier",
+        "reactive_current"
+      ],
+      "type": "float",
+      "unit": "var"
+    },
+    {
+      "column": "power_diagnostics__connections__bus_rectifier__voltage_v",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "bus_rectifier",
+        "voltage"
+      ],
+      "type": "float",
+      "unit": "V"
+    },
+    {
+      "column": "power_diagnostics__connections__charger_battery__current_a",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "charger_battery",
+        "current"
+      ],
+      "type": "float",
+      "unit": "A"
+    },
+    {
+      "column": "power_diagnostics__connections__charger_battery__direction",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "charger_battery",
+        "direction"
+      ],
+      "type": "int",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__connections__charger_battery__kind",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "charger_battery",
+        "kind"
+      ],
+      "type": "string",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__connections__charger_battery__power_w",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "charger_battery",
+        "power"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "power_diagnostics__connections__charger_battery__voltage_v",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "charger_battery",
+        "voltage"
+      ],
+      "type": "float",
+      "unit": "V"
+    },
+    {
+      "column": "power_diagnostics__connections__chopper_resistor__current_a",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "chopper_resistor",
+        "current"
+      ],
+      "type": "float",
+      "unit": "A"
+    },
+    {
+      "column": "power_diagnostics__connections__chopper_resistor__direction",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "chopper_resistor",
+        "direction"
+      ],
+      "type": "int",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__connections__chopper_resistor__kind",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "chopper_resistor",
+        "kind"
+      ],
+      "type": "string",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__connections__chopper_resistor__power_w",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "chopper_resistor",
+        "power"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "power_diagnostics__connections__chopper_resistor__voltage_v",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "chopper_resistor",
+        "voltage"
+      ],
+      "type": "float",
+      "unit": "V"
+    },
+    {
+      "column": "power_diagnostics__connections__dc_charger__current_a",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "dc_charger",
+        "current"
+      ],
+      "type": "float",
+      "unit": "A"
+    },
+    {
+      "column": "power_diagnostics__connections__dc_charger__direction",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "dc_charger",
+        "direction"
+      ],
+      "type": "int",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__connections__dc_charger__kind",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "dc_charger",
+        "kind"
+      ],
+      "type": "string",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__connections__dc_charger__power_w",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "dc_charger",
+        "power"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "power_diagnostics__connections__dc_charger__voltage_v",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "dc_charger",
+        "voltage"
+      ],
+      "type": "float",
+      "unit": "V"
+    },
+    {
+      "column": "power_diagnostics__connections__dc_chopper__current_a",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "dc_chopper",
+        "current"
+      ],
+      "type": "float",
+      "unit": "A"
+    },
+    {
+      "column": "power_diagnostics__connections__dc_chopper__direction",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "dc_chopper",
+        "direction"
+      ],
+      "type": "int",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__connections__dc_chopper__kind",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "dc_chopper",
+        "kind"
+      ],
+      "type": "string",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__connections__dc_chopper__power_w",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "dc_chopper",
+        "power"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "power_diagnostics__connections__dc_chopper__voltage_v",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "dc_chopper",
+        "voltage"
+      ],
+      "type": "float",
+      "unit": "V"
+    },
+    {
+      "column": "power_diagnostics__connections__exciter_bus__active_current_a",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "exciter_bus",
+        "active_current"
+      ],
+      "type": "float",
+      "unit": "A"
+    },
+    {
+      "column": "power_diagnostics__connections__exciter_bus__current_a",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "exciter_bus",
+        "current"
+      ],
+      "type": "float",
+      "unit": "A"
+    },
+    {
+      "column": "power_diagnostics__connections__exciter_bus__direction",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "exciter_bus",
+        "direction"
+      ],
+      "type": "int",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__connections__exciter_bus__equivalent",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "exciter_bus",
+        "equivalent"
+      ],
+      "type": "bool",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__connections__exciter_bus__kind",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "exciter_bus",
+        "kind"
+      ],
+      "type": "string",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__connections__exciter_bus__power_w",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "exciter_bus",
+        "power"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "power_diagnostics__connections__exciter_bus__reactive_var",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "exciter_bus",
+        "reactive"
+      ],
+      "type": "float",
+      "unit": "var"
+    },
+    {
+      "column": "power_diagnostics__connections__exciter_bus__reactive_current_var",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "exciter_bus",
+        "reactive_current"
+      ],
+      "type": "float",
+      "unit": "var"
+    },
+    {
+      "column": "power_diagnostics__connections__exciter_bus__voltage_v",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "exciter_bus",
+        "voltage"
+      ],
+      "type": "float",
+      "unit": "V"
+    },
+    {
+      "column": "power_diagnostics__connections__gear_machine__direction",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "gear_machine",
+        "direction"
+      ],
+      "type": "int",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__connections__gear_machine__kind",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "gear_machine",
+        "kind"
+      ],
+      "type": "string",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__connections__gear_machine__power_w",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "gear_machine",
+        "power"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "power_diagnostics__connections__gear_machine__rpm",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "gear_machine",
+        "rpm"
+      ],
+      "type": "float",
+      "unit": "RPM"
+    },
+    {
+      "column": "power_diagnostics__connections__gear_machine__torque_nm",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "gear_machine",
+        "torque"
+      ],
+      "type": "float",
+      "unit": "N m"
+    },
+    {
+      "column": "power_diagnostics__connections__load_gear__direction",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "load_gear",
+        "direction"
+      ],
+      "type": "int",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__connections__load_gear__force",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "load_gear",
+        "force"
+      ],
+      "type": "float",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__connections__load_gear__kind",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "load_gear",
+        "kind"
+      ],
+      "type": "string",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__connections__load_gear__power_w",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "load_gear",
+        "power"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "power_diagnostics__connections__load_gear__velocity",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "load_gear",
+        "velocity"
+      ],
+      "type": "float",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__connections__machine_bus__active_current_a",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "machine_bus",
+        "active_current"
+      ],
+      "type": "float",
+      "unit": "A"
+    },
+    {
+      "column": "power_diagnostics__connections__machine_bus__current_a",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "machine_bus",
+        "current"
+      ],
+      "type": "float",
+      "unit": "A"
+    },
+    {
+      "column": "power_diagnostics__connections__machine_bus__direction",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "machine_bus",
+        "direction"
+      ],
+      "type": "int",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__connections__machine_bus__equivalent",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "machine_bus",
+        "equivalent"
+      ],
+      "type": "bool",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__connections__machine_bus__kind",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "machine_bus",
+        "kind"
+      ],
+      "type": "string",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__connections__machine_bus__power_w",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "machine_bus",
+        "power"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "power_diagnostics__connections__machine_bus__reactive_var",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "machine_bus",
+        "reactive"
+      ],
+      "type": "float",
+      "unit": "var"
+    },
+    {
+      "column": "power_diagnostics__connections__machine_bus__reactive_current_var",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "machine_bus",
+        "reactive_current"
+      ],
+      "type": "float",
+      "unit": "var"
+    },
+    {
+      "column": "power_diagnostics__connections__machine_bus__voltage_v",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "machine_bus",
+        "voltage"
+      ],
+      "type": "float",
+      "unit": "V"
+    },
+    {
+      "column": "power_diagnostics__connections__rectifier_dc__current_a",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "rectifier_dc",
+        "current"
+      ],
+      "type": "float",
+      "unit": "A"
+    },
+    {
+      "column": "power_diagnostics__connections__rectifier_dc__direction",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "rectifier_dc",
+        "direction"
+      ],
+      "type": "int",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__connections__rectifier_dc__kind",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "rectifier_dc",
+        "kind"
+      ],
+      "type": "string",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__connections__rectifier_dc__power_w",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "rectifier_dc",
+        "power"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "power_diagnostics__connections__rectifier_dc__voltage_v",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "connections",
+        "rectifier_dc",
+        "voltage"
+      ],
+      "type": "float",
+      "unit": "V"
+    },
+    {
+      "column": "power_diagnostics__kcl",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "kcl"
+      ],
+      "type": "json",
+      "unit": ""
+    },
+    {
+      "column": "power_diagnostics__reactive_residual_var",
+      "section": "readings",
+      "path": [
+        "power_diagnostics",
+        "reactive_residual"
+      ],
+      "type": "float",
+      "unit": "var"
+    },
+    {
+      "column": "power_transfer_limited_w",
+      "section": "readings",
+      "path": [
+        "power_transfer_limited"
+      ],
+      "type": "bool",
+      "unit": "W"
+    },
+    {
+      "column": "rectifier_ac_current_a",
+      "section": "readings",
+      "path": [
+        "rectifier_ac_current"
+      ],
+      "type": "float",
+      "unit": "A"
+    },
+    {
+      "column": "rectifier_current_a",
+      "section": "readings",
+      "path": [
+        "rectifier_current"
+      ],
+      "type": "float",
+      "unit": "A"
+    },
+    {
+      "column": "rectifier_enabled",
+      "section": "readings",
+      "path": [
+        "rectifier_enabled"
+      ],
+      "type": "bool",
+      "unit": ""
+    },
+    {
+      "column": "rectifier_energy_j",
+      "section": "readings",
+      "path": [
+        "rectifier_energy"
+      ],
+      "type": "float",
+      "unit": "J"
+    },
+    {
+      "column": "rectifier_loss_w",
+      "section": "readings",
+      "path": [
+        "rectifier_loss"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "rectifier_loss_energy_j",
+      "section": "readings",
+      "path": [
+        "rectifier_loss_energy"
+      ],
+      "type": "float",
+      "unit": "J"
+    },
+    {
+      "column": "rectifier_dc_power_w",
+      "section": "readings",
+      "path": [
+        "rectifier_power"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "rotor_loss_w",
+      "section": "readings",
+      "path": [
+        "rotor_loss"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "motor_rpm",
+      "section": "readings",
+      "path": [
+        "rpm"
+      ],
+      "type": "float",
+      "unit": "RPM"
+    },
+    {
+      "column": "runaway",
+      "section": "readings",
+      "path": [
+        "runaway"
+      ],
+      "type": "bool",
+      "unit": ""
+    },
+    {
+      "column": "runaway_elapsed_s",
+      "section": "readings",
+      "path": [
+        "runaway_elapsed"
+      ],
+      "type": "float",
+      "unit": "s"
+    },
+    {
+      "column": "sequence_state",
+      "section": "readings",
+      "path": [
+        "sequence_state"
+      ],
+      "type": "string",
+      "unit": ""
+    },
+    {
+      "column": "sequence_state_elapsed_s",
+      "section": "readings",
+      "path": [
+        "sequence_state_elapsed"
+      ],
+      "type": "float",
+      "unit": "s"
+    },
+    {
+      "column": "slip",
+      "section": "readings",
+      "path": [
+        "slip"
+      ],
+      "type": "float",
+      "unit": ""
+    },
+    {
+      "column": "slip_valid",
+      "section": "readings",
+      "path": [
+        "slip_valid"
+      ],
+      "type": "bool",
+      "unit": ""
+    },
+    {
+      "column": "source_energy_j",
+      "section": "readings",
+      "path": [
+        "source_energy"
+      ],
+      "type": "int",
+      "unit": "J"
+    },
+    {
+      "column": "start_mode",
+      "section": "readings",
+      "path": [
+        "start_mode"
+      ],
+      "type": "string",
+      "unit": ""
+    },
+    {
+      "column": "startup_status",
+      "section": "readings",
+      "path": [
+        "startup_status"
+      ],
+      "type": "string",
+      "unit": ""
+    },
+    {
+      "column": "startup_support",
+      "section": "readings",
+      "path": [
+        "startup_support"
+      ],
+      "type": "bool",
+      "unit": ""
+    },
+    {
+      "column": "frequency_command_hz",
+      "section": "readings",
+      "path": [
+        "stator_frequency_command"
+      ],
+      "type": "float",
+      "unit": "Hz"
+    },
+    {
+      "column": "stator_loss_w",
+      "section": "readings",
+      "path": [
+        "stator_loss"
+      ],
+      "type": "float",
+      "unit": "W"
+    },
+    {
+      "column": "support_complete",
+      "section": "readings",
+      "path": [
+        "support_complete"
+      ],
+      "type": "bool",
+      "unit": ""
+    },
+    {
+      "column": "synchronous_speed_rpm",
+      "section": "readings",
+      "path": [
+        "synchronous_rpm"
+      ],
+      "type": "float",
+      "unit": "RPM"
+    },
+    {
+      "column": "load_speed_m_min",
+      "section": "readings",
+      "path": [
+        "velocity"
+      ],
+      "type": "float",
+      "unit": "m/min",
+      "csv_scale": 60.0
+    },
+    {
+      "column": "vf_current_limited_a",
+      "section": "readings",
+      "path": [
+        "vf_current_limited"
+      ],
+      "type": "bool",
+      "unit": "A"
+    },
+    {
+      "column": "vf_flux_limited",
+      "section": "readings",
+      "path": [
+        "vf_flux_limited"
+      ],
+      "type": "bool",
+      "unit": ""
+    },
+    {
+      "column": "voltage_command_v",
+      "section": "readings",
+      "path": [
+        "voltage_command"
+      ],
+      "type": "float",
+      "unit": "V"
+    }
+  ]
+}

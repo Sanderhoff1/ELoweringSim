@@ -81,13 +81,33 @@ class Parameters:
     exciter_run_active_limit: float = parameter(35.0, "W", "Maximum positive exciter AC power after brake release", "estimated", minimum=0, maximum=10000)
     exciter_absorption_limit: float = parameter(0.0, "W", "Deprecated compatibility input; reviewed exciter never absorbs AC real power", "estimated", maximum=100)
     exciter_flux_target: float = parameter(0.95, "Wb turn", "Peak magnetizing flux-linkage reference", "estimated", minimum=0.01, maximum=5)
+    maximum_magnetic_flux: float = parameter(1.30, "Wb turn", "Maximum allowed estimated magnetizing flux before V/f derating", "estimated", minimum=0.01, maximum=10)
+    motor_current_limit_rms: float = parameter(6.0, "A RMS", "Maximum intended machine phase-current magnitude for scalar V/f control", "estimated", minimum=0.1, maximum=1000)
+    overcurrent_dwell: float = parameter(0.1, "s", "Time above the machine-current limit before a protection fault", "estimated", minimum=0.001, maximum=10)
+    auxiliary_max_voltage: float = parameter(650.0, "V DC", "Auxiliary-link overvoltage protection limit", "estimated", minimum=10, maximum=2000)
+    main_dc_max_voltage: float = parameter(650.0, "V DC", "Main DC-link overvoltage protection limit", "estimated", minimum=10, maximum=2000)
+    minimum_control_frequency: float = parameter(5.0, "Hz", "Minimum intended controlled exciter frequency before mechanical braking", "estimated", minimum=0.1, maximum=100)
+    frequency_accel_rate: float = parameter(15.0, "Hz/s", "Maximum scalar V/f frequency-command increase", "estimated", minimum=0.01, maximum=1000)
+    frequency_decel_rate: float = parameter(3.0, "Hz/s", "Maximum scalar V/f frequency-command decrease", "estimated", minimum=0.01, maximum=1000)
+    vf_limit_response: float = parameter(0.01, "s", "Current/flux derating response time", "estimated", minimum=0.001, maximum=10)
+    sequence_normal_frequency: float = parameter(20.0, "Hz", "Canonical lowering frequency target", "estimated", minimum=0.1, maximum=100)
+    sequence_slowdown_1_frequency: float = parameter(10.0, "Hz", "First canonical slowdown target", "estimated", minimum=0.1, maximum=100)
+    sequence_slowdown_2_frequency: float = parameter(5.0, "Hz", "Final canonical controlled frequency", "estimated", minimum=0.1, maximum=100)
+    sequence_ready_time: float = parameter(0.05, "s", "Electrical-ready dwell before brake release", "estimated", minimum=0, maximum=10)
+    sequence_normal_hold: float = parameter(0.6, "s", "Canonical hold after reaching normal frequency", "estimated", minimum=0, maximum=60)
+    sequence_slowdown_1_hold: float = parameter(0.5, "s", "Canonical hold after reaching first slowdown target", "estimated", minimum=0, maximum=60)
+    sequence_slowdown_2_hold: float = parameter(0.4, "s", "Canonical hold at minimum controlled frequency", "estimated", minimum=0, maximum=60)
+    sequence_capacitor_hold: float = parameter(3.0, "s", "Canonical capacitor-only natural-lowering observation time", "estimated", minimum=0.01, maximum=120)
+    sequence_stop_speed: float = parameter(0.005, "m/s", "Speed below which a physically applied brake qualifies STOPPED", "estimated", minimum=0, maximum=10)
+    runaway_speed_limit: float = parameter(0.8, "m/s", "Simulation diagnostic lowering-speed limit", "estimated", minimum=0.01, maximum=100)
+    runaway_min_export_power: float = parameter(20.0, "W", "Minimum useful export while diagnosing current-limited runaway", "estimated", minimum=0, maximum=100000)
+    runaway_dwell: float = parameter(0.3, "s", "Duration of runaway evidence before FAULT", "estimated", minimum=0.001, maximum=10)
     startup_frequency: float = parameter(2.0, "Hz", "Low-frequency magnetization before brake release", "estimated", minimum=0.1, maximum=50)
     startup_flux_fraction: float = parameter(0.8, "fraction", "Required flux fraction before automatic brake release", "estimated", minimum=0.1, maximum=1)
     startup_dwell: float = parameter(0.2, "s", "Continuous magnetization qualification before release", "estimated", minimum=0.01, maximum=10)
     startup_ramp: float = parameter(0.3, "s", "Field-frequency ramp after brake release", "estimated", minimum=0.01, maximum=10)
     dc_precharge_resistance: float = parameter(150.0, "ohm", "Series resistance from bridge to main DC capacitor while K_PRECHARGE is closed", "estimated", minimum=0.1, maximum=100000)
     dc_precharge_close_fraction: float = parameter(0.90, "fraction", "Main-contactor close threshold relative to available rectified crest voltage", "estimated", minimum=0.1, maximum=0.999)
-    dc_precharge_min_export: float = parameter(20.0, "W", "Machine terminal export required before main-link precharge begins", "estimated", minimum=0, maximum=10000)
     dc_precharge_timeout: float = parameter(3.0, "s", "Maximum precharge duration before a latched startup fault", "estimated", minimum=0.01, maximum=60)
 
     def __post_init__(self):
@@ -97,3 +117,10 @@ class Parameters:
                 raise ValueError(f"{item.name}: enter {item.metadata['minimum']} to {item.metadata['maximum']} {item.metadata['unit']}")
         if self.pole_pairs != int(self.pole_pairs):
             raise ValueError("pole_pairs must be an integer")
+        if self.exciter_flux_target > self.maximum_magnetic_flux:
+            raise ValueError("exciter_flux_target must not exceed maximum_magnetic_flux")
+        if self.boost_target_voltage > self.auxiliary_max_voltage:
+            raise ValueError("boost_target_voltage must not exceed auxiliary_max_voltage")
+        if not (self.sequence_slowdown_2_frequency <= self.sequence_slowdown_1_frequency
+                <= self.sequence_normal_frequency):
+            raise ValueError("sequence frequencies must descend from normal to slowdown 1 to slowdown 2")

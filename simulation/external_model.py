@@ -14,6 +14,7 @@ from .capacitor_rectifier import transfer, midpoint_voltage
 from .external_exciter import current as exciter_current
 from .examples import small_hoist
 from .auxiliary import (auxiliary_step, boost_current, boost_limit, paths)
+from .scalar_vf import ScalarVFState, base_flux, step as scalar_vf_step
 
 
 class ExciterSolverError(RuntimeError):
@@ -164,6 +165,9 @@ class ControlInputs:
     emergency_stop: bool=False
     speed_request_hz: float | None=None
     brake_release_override: bool | None=None
+    main_dc_enable: bool=True
+    main_bypass_command: bool | None=None
+    automatic_profile: bool=False
 
 
 @dataclass
@@ -174,6 +178,17 @@ class SwitchgearState:
     k_main: bool=False
     precharge_elapsed: float=0.0
     fault: str=''
+
+
+@dataclass
+class SequenceControllerState:
+    name: str='OFF'
+    elapsed: float=0.0
+    target_frequency: float=0.0
+    at_target_elapsed: float=0.0
+    runaway_elapsed: float=0.0
+    runaway: bool=False
+    overcurrent_elapsed: float=0.0
 
 
 class Kernel:
@@ -219,7 +234,8 @@ class Kernel:
         return magnetic,.75*self.cac*abs(voltage)**2
 
     def rate(self,y,phase,frequency,omega,vdc,enabled,connected=True,
-             capacitor_mode=True,vaux=None,bridge_state='main',active_limit=None):
+             capacitor_mode=True,vaux=None,bridge_state='main',active_limit=None,
+             target_flux=None,voltage_command=None):
         p=self.p
         ps,pr,v=y
         is_,ir,pm=self.currents(ps,pr)
@@ -229,8 +245,12 @@ class Kernel:
         we=2*math.pi*frequency
         commanded=1j*we*ps+p.stator_resistance*is_
         field_axis=pm/abs(pm) if abs(pm)>1e-9 else axis
-        commanded+=(self.flux*field_axis-pm)/p.excitation_response
+        flux_request=self.flux if target_flux is None else max(0.0,target_flux)
+        commanded+=(flux_request*field_axis-pm)/p.excitation_response
         source=commanded+p.inverter_output_resistance*is_
+        if voltage_command is not None:
+            phase_peak=math.sqrt(2/3)*max(0.0,voltage_command)
+            source*=min(1.0,phase_peak/max(abs(source),1e-12))
         vaux=p.boost_target_voltage if vaux is None else max(0.0,vaux)
         ceiling=vaux/math.sqrt(3)
         source*=min(1.,ceiling/max(abs(source),1e-12))
@@ -355,14 +375,31 @@ class ExternalLoweringModel(MechanicalModel):
             precharge_loss_energy=max(0.0,drawn-cap_energy),
             aux_energy=.5*aux_capacitance*p.aux_initial_voltage**2,
             aux_capacitance=aux_capacitance)
-        self.switchgear=SwitchgearState(k_cap=cap_mode,k_exc=not cap_mode)
         self.support_complete=False
         self.support_qualified_time=0.0
         self.qualified_time=0.0
         self.release_time=None
-        self.startup_status=('AUXILIARY LINK CHARGING' if self.startup_enabled and not cap_mode
-                             else 'WAITING FOR ROTATION' if self.startup_enabled and self.start_mode=='residual'
-                             else 'MAGNETIZING' if self.startup_enabled else 'MANUAL')
+        if not self.controls.master_on or not self.controls.start_lower:
+            sequence_name='OFF'
+        elif self.startup_enabled and (not cap_mode or self.startup_support_active()):
+            sequence_name='AUXILIARY_START'
+        elif self.startup_enabled and cap_mode:
+            sequence_name='BRAKE_RELEASE'
+        else:
+            sequence_name='LOWERING'
+        initial_frequency=(0.0 if self.startup_enabled else
+            (p.supply_frequency if self.controls.speed_request_hz is None
+             else self.controls.speed_request_hz))
+        self.sequence=SequenceControllerState(name=sequence_name)
+        self.vf=ScalarVFState(frequency_command=initial_frequency,
+                              flux_target=(0.0 if self.startup_enabled else base_flux(p)))
+        dc_enabled=(self.controls.master_on and self.controls.main_dc_enable
+                    and not self.controls.emergency_stop)
+        bypass=self.controls.main_bypass_command is True
+        self.switchgear=SwitchgearState(
+            k_cap=cap_mode,k_exc=(not cap_mode and sequence_name!='AUXILIARY_START'),
+            k_precharge=dc_enabled and not bypass,k_main=dc_enabled and bypass)
+        self.startup_status=sequence_name
         self.gear_energy=self.drivetrain_energy=self.brake_energy=self.friction_energy=0.0
         self.initial_energy=self.total_energy()+self.electrical.precharge_loss_energy
         self.rejected_steps=0
@@ -372,7 +409,9 @@ class ExternalLoweringModel(MechanicalModel):
                 and not self.support_complete)
 
     def excitation_active(self):
-        return (self.inverter_enabled and self.switchgear.k_exc
+        sequence_allows=(not hasattr(self,'sequence') or self.sequence.name not in
+                         ('OFF','AUXILIARY_START','STOPPED','FAULT'))
+        return (sequence_allows and self.inverter_enabled and self.switchgear.k_exc
                 and self.electrical.battery_energy>0
                 and self.electrical.aux_voltage>=self.parameters.aux_ready_voltage
                 and (self.excitation_mode=='exciter' or self.startup_support_active()))
@@ -390,80 +429,189 @@ class ExternalLoweringModel(MechanicalModel):
                 -p.mass*p.gravity*s.position)
 
     def frequency(self):
-        p=self.parameters
-        requested=(p.supply_frequency if self.controls.speed_request_hz is None
-                   else min(100.0,max(0.1,self.controls.speed_request_hz)))
-        if not self.startup_enabled: return requested
-        if self.release_time is None: return p.startup_frequency
-        fraction=min(1.0,(self.state.time-self.release_time)/p.startup_ramp)
-        return p.startup_frequency+(requested-p.startup_frequency)*fraction
+        if self.excitation_mode=='capacitor':
+            return self.parameters.startup_frequency if self.startup_support_active() else 0.0
+        return self.vf.frequency_command
 
     def bridge_state(self):
         return ('main' if self.switchgear.k_main else 'precharge'
                 if self.switchgear.k_precharge else 'isolated')
 
+    def _transition(self,name):
+        if self.sequence.name!=name:
+            self.sequence.name=name
+            self.sequence.elapsed=0.0
+            self.sequence.at_target_elapsed=0.0
+
     def _sequence(self,dt):
-        """Architecture-level controller commanding independent components."""
+        """Backup-lowering state machine; it only commands modeled hardware."""
         p,s,e,sw=self.parameters,self.state,self.electrical,self.switchgear
         is_,_,_=self.kernel.currents(e.stator_flux,e.rotor_flux)
         machine_input=1.5*(e.voltage*(is_+e.voltage*self.kernel.gc).conjugate()).real
         measured_export=-machine_input
         line_voltage=math.sqrt(1.5)*abs(e.voltage)
+        flux=abs(self.kernel.currents(e.stator_flux,e.rotor_flux)[2])
+        motor_current=abs(is_+e.voltage*self.kernel.gc)/math.sqrt(2)
+        seq=self.sequence
+        seq.elapsed+=dt
+        seq.overcurrent_elapsed=(seq.overcurrent_elapsed+dt
+                                 if motor_current>p.motor_current_limit_rms else 0.0)
         sw.k_cap=self.excitation_mode=='capacitor'
-        sw.k_exc=(self.excitation_mode=='exciter' or self.startup_support_active())
-        if self.controls.emergency_stop or self.controls.stop or not self.controls.master_on:
+        if sw.fault:
+            self._transition('FAULT')
+        elif self.controls.emergency_stop:
+            sw.fault='EMERGENCY STOP'
+            self._transition('FAULT')
+        elif e.aux_voltage>p.auxiliary_max_voltage:
+            sw.fault='AUXILIARY DC OVERVOLTAGE'
+            self._transition('FAULT')
+        elif e.dc_voltage>p.main_dc_max_voltage:
+            sw.fault='MAIN DC OVERVOLTAGE'
+            self._transition('FAULT')
+        elif flux>p.maximum_magnetic_flux:
+            sw.fault='MACHINE OVERFLUX'
+            self._transition('FAULT')
+        elif seq.overcurrent_elapsed>=p.overcurrent_dwell:
+            sw.fault='MACHINE OVERCURRENT'
+            self._transition('FAULT')
+        elif not self.controls.master_on:
+            self._transition('OFF')
+        elif self.controls.stop and seq.name not in ('STOPPED','FAULT'):
+            self._transition('BRAKE_APPLY')
+
+        # Capacitor-only frequency and voltage remain emergent.  The common
+        # state machine only releases/applies the real mechanical brake.
+        if self.excitation_mode=='capacitor' and not self.startup_support_active():
+            if seq.name=='OFF' and self.controls.start_lower:
+                self._transition('BRAKE_RELEASE')
+            if seq.name=='BRAKE_RELEASE':
+                self.brake_released=True
+                if self.release_time is None:self.release_time=s.time
+                if s.brake_fraction<=.01:self._transition('LOWERING')
+            elif seq.name=='LOWERING':
+                self.brake_released=True
+                if self.controls.automatic_profile and seq.elapsed>=p.sequence_capacitor_hold:
+                    self._transition('BRAKE_APPLY')
+            elif seq.name=='BRAKE_APPLY':
+                self.brake_released=False
+                if s.brake_fraction>=.99 and abs(p.radius*s.omega)<=p.sequence_stop_speed:
+                    self._transition('STOPPED')
+            elif seq.name in ('STOPPED','FAULT','OFF'):
+                self.brake_released=False
+            seq.target_frequency=0.0
+        else:
+            if seq.name=='OFF' and self.controls.start_lower:
+                self._transition('AUXILIARY_START')
+            if seq.name=='AUXILIARY_START':
+                self.brake_released=False
+                if e.aux_voltage>=p.aux_ready_voltage:self._transition('EXCITATION_BUILD')
+            elif seq.name=='EXCITATION_BUILD':
+                self.brake_released=False
+                ready=(flux>=p.startup_flux_fraction*base_flux(p)
+                       and motor_current<=p.motor_current_limit_rms)
+                self.qualified_time=self.qualified_time+dt if ready else 0.0
+                self.support_qualified_time=self.qualified_time
+                if self.qualified_time>=p.startup_dwell:
+                    if self.excitation_mode=='capacitor':
+                        self.support_complete=True
+                        self._transition('BRAKE_RELEASE')
+                    else:
+                        self._transition('READY_TO_RELEASE')
+            elif seq.name=='READY_TO_RELEASE':
+                self.brake_released=False
+                if seq.elapsed>=p.sequence_ready_time:self._transition('BRAKE_RELEASE')
+            elif seq.name=='BRAKE_RELEASE':
+                self.brake_released=True
+                if self.release_time is None:self.release_time=s.time
+                if s.brake_fraction<=.01:self._transition('LOWERING')
+            elif seq.name=='LOWERING':
+                self.brake_released=True
+                if self.controls.automatic_profile and seq.at_target_elapsed>=p.sequence_normal_hold:
+                    self._transition('SLOWDOWN_1')
+            elif seq.name=='SLOWDOWN_1':
+                self.brake_released=True
+                if seq.at_target_elapsed>=p.sequence_slowdown_1_hold:self._transition('SLOWDOWN_2')
+            elif seq.name=='SLOWDOWN_2':
+                self.brake_released=True
+                if seq.at_target_elapsed>=p.sequence_slowdown_2_hold:self._transition('BRAKE_APPLY')
+            elif seq.name=='BRAKE_APPLY':
+                self.brake_released=False
+                if s.brake_fraction>=.99 and abs(p.radius*s.omega)<=p.sequence_stop_speed:
+                    self._transition('STOPPED')
+            elif seq.name in ('STOPPED','FAULT','OFF'):
+                self.brake_released=False
+
+            requested=(p.supply_frequency if self.controls.speed_request_hz is None
+                       else min(100.0,max(p.minimum_control_frequency,
+                                        self.controls.speed_request_hz)))
+            start_frequency=max(p.startup_frequency,p.minimum_control_frequency)
+            targets={'AUXILIARY_START':0.0,'EXCITATION_BUILD':start_frequency,
+                     'READY_TO_RELEASE':start_frequency,'BRAKE_RELEASE':start_frequency,
+                     'LOWERING':p.sequence_normal_frequency if self.controls.automatic_profile else requested,
+                     'SLOWDOWN_1':p.sequence_slowdown_1_frequency,
+                     'SLOWDOWN_2':p.sequence_slowdown_2_frequency,
+                     'BRAKE_APPLY':p.sequence_slowdown_2_frequency,
+                     'STOPPED':0.0,'FAULT':0.0,'OFF':0.0}
+            seq.target_frequency=targets.get(seq.name,0.0)
+            if self.excitation_mode=='exciter':
+                scalar_vf_step(p,self.vf,dt,seq.target_frequency,flux,motor_current,
+                               e.aux_voltage,seq.name not in ('OFF','AUXILIARY_START','STOPPED','FAULT'))
+                if abs(self.vf.frequency_command-seq.target_frequency)<=.05:
+                    seq.at_target_elapsed+=dt
+                else:
+                    seq.at_target_elapsed=0.0
+
+        active_states=('EXCITATION_BUILD','READY_TO_RELEASE','BRAKE_RELEASE','LOWERING',
+                       'SLOWDOWN_1','SLOWDOWN_2','BRAKE_APPLY')
+        sw.k_exc=((self.excitation_mode=='exciter' and seq.name in active_states)
+                  or self.startup_support_active())
+
+        velocity=abs(p.radius*s.omega)
+        acceleration=(self._drive(self.kernel.torque(e.stator_flux,e.rotor_flux))-
+                      p.damping*s.omega)*p.radius/(p.inertia+p.mass*p.radius**2)
+        loss_of_control=(seq.name in ('LOWERING','SLOWDOWN_1','SLOWDOWN_2') and
+                         self.vf.current_limited and measured_export<p.runaway_min_export_power
+                         and velocity>.02 and acceleration>0)
+        runaway_now=velocity>p.runaway_speed_limit or loss_of_control
+        seq.runaway_elapsed=seq.runaway_elapsed+dt if runaway_now else 0.0
+        seq.runaway=seq.runaway_elapsed>=p.runaway_dwell
+        if seq.runaway and seq.name!='FAULT':
+            sw.fault='RUNAWAY DIAGNOSTIC'
+            self._transition('FAULT')
+            self.brake_released=False
+
+        dc_enabled=(self.controls.master_on and self.controls.main_dc_enable
+                    and not self.controls.emergency_stop and not sw.fault)
+        if not dc_enabled:
+            sw.k_precharge=sw.k_main=False
+            sw.precharge_elapsed=0.0
+        elif self.controls.main_bypass_command is True:
+            sw.k_precharge=False
+            sw.k_main=True
+            sw.precharge_elapsed=0.0
+        elif self.controls.main_bypass_command is False:
+            sw.k_precharge=True
+            sw.k_main=False
+        elif not sw.k_main:
+            # K_PRECHARGE is commanded as soon as the main DC path is enabled.
+            # Whether current flows is then determined only by the diode/source,
+            # resistor and capacitor equations.
+            sw.k_precharge=True
+        if not self.controls.start_lower and seq.name not in ('FAULT','STOPPED'):
+            self._transition('OFF')
             self.brake_released=False
             sw.k_exc=False
-            if self.controls.emergency_stop: sw.fault='EMERGENCY STOP'
-            self.startup_status='STOPPED' if not sw.fault else sw.fault
-            return
-        if not self.controls.start_lower:
-            self.brake_released=False
-            self.startup_status='READY / WAITING FOR LOWER COMMAND'
-            return
         if self.controls.brake_release_override is not None:
             self.brake_released=self.controls.brake_release_override
-        if self.startup_support_active() and e.aux_voltage>=p.aux_ready_voltage:
-            field=abs(self.kernel.currents(e.stator_flux,e.rotor_flux)[2])
-            self.support_qualified_time=(self.support_qualified_time+dt
-                if field>=p.startup_flux_fraction*p.exciter_flux_target else 0.)
-            if self.support_qualified_time>=p.startup_dwell:
-                self.support_complete=True
-                sw.k_exc=False
-        if self.startup_enabled and self.release_time is None and self.controls.brake_release_override is None:
-            flux=abs(self.kernel.currents(e.stator_flux,e.rotor_flux)[2])
-            # Residual-only self excitation requires rotation.  Release first;
-            # do not wait indefinitely for stationary field build-up.
-            if self.excitation_mode=='capacitor' and self.start_mode in ('residual','zero'):
-                self.brake_released=True
-                self.release_time=s.time
-                self.startup_status='RELEASING FOR RESIDUAL BUILDUP'
-            else:
-                field_available=self.excitation_active() or self.excitation_mode=='capacitor'
-                self.qualified_time=(self.qualified_time+dt if field_available and
-                    flux>=p.startup_flux_fraction*p.exciter_flux_target else 0.0)
-                self.brake_released=False
-                self.startup_status=('MAGNETIZING' if field_available else
-                    'AUXILIARY LINK CHARGING' if sw.k_exc else 'WAITING FOR EXCITATION')
-                if self.qualified_time>=p.startup_dwell:
-                    self.brake_released=True
-                    self.release_time=s.time
-                    self.startup_status='RELEASING / ACCELERATING'
-        elif self.startup_enabled:
-            self.startup_status=('GENERATING' if measured_export>1.0
-                                 else 'ACCELERATING')
-        # Begin loading the AC bus only after real generation exists.  The
-        # resistor-limited path charges Cdc before the main contactor bypasses it.
-        electrically_ready=(self.release_time is not None and
-            line_voltage>=.75*p.motor_rated_voltage and machine_input<=1.0)
-        if (not sw.k_precharge and not sw.k_main and line_voltage>50 and
-                (measured_export>=p.dc_precharge_min_export or electrically_ready)):
-            sw.k_precharge=True
-            sw.precharge_elapsed=0.0
+        self.startup_status=sw.fault if sw.fault else seq.name
+        # Automatic bypass is real contactor-control logic: close K_MAIN only
+        # after C_dc matches the presently available rectified crest.  It never
+        # decides whether the passive bridge is allowed to conduct.
         if sw.k_precharge:
             sw.precharge_elapsed+=dt
             crest=math.sqrt(2)*line_voltage
-            if crest>0 and e.dc_voltage>=p.dc_precharge_close_fraction*crest:
+            if (self.controls.main_bypass_command is None and crest>0 and
+                    e.dc_voltage>=p.dc_precharge_close_fraction*crest):
                 sw.k_precharge=False;sw.k_main=True
             elif sw.precharge_elapsed>=p.dc_precharge_timeout:
                 sw.k_precharge=False;sw.fault='MAIN DC PRECHARGE TIMEOUT'
@@ -503,7 +651,7 @@ class ExternalLoweringModel(MechanicalModel):
         s.time,s.position,s.angle,s.omega=saved
         frequency=self.frequency()
         command=(min(p.chopper_max_duty,max(0.0,(e.dc_voltage-p.chopper_threshold)/p.chopper_band))
-                 if self.chopper_enabled and self.switchgear.k_main else 0.0)
+                 if self.chopper_enabled else 0.0)
         duty=command+(e.chopper_duty-command)*math.exp(-h/(2*p.chopper_response))
         bridge_state=self.bridge_state()
         bridge_resistance=(p.rectifier_resistance+p.dc_precharge_resistance
@@ -518,15 +666,18 @@ class ExternalLoweringModel(MechanicalModel):
         exciter_on=self.excitation_active()
         boost_i,next_boost_i,_,_=boost_current(
             p,e.aux_voltage,e.boost_current_state,e.battery_energy,h,
-            self.controls.master_on and self.switchgear.k_exc and self.inverter_enabled
-            and not self.controls.emergency_stop)
+            self.controls.master_on and not self.controls.emergency_stop
+            and e.aux_voltage<p.auxiliary_max_voltage)
         # The inverter may use energy already in C_aux plus energy deliverable
         # during this substep.  This bound participates inside the AC solve.
         k.supply_limit=e.aux_energy/h+boost_limit(p,e.battery_energy,h)
         active_limit=(p.exciter_active_limit if self.release_time is None
                       else p.exciter_run_active_limit)
+        vf_flux=self.vf.flux_target if self.excitation_mode=='exciter' else None
+        vf_voltage=self.vf.voltage_command if self.excitation_mode=='exciter' else None
         args=(frequency,midomega,vdc,exciter_on,self.motor_connected,
-              self.excitation_mode=='capacitor',e.aux_voltage,bridge_state,active_limit)
+              self.excitation_mode=='capacitor',e.aux_voltage,bridge_state,active_limit,
+              vf_flux,vf_voltage)
         a=k.rate(y,phase,*args)
         b=k.rate(tuple(y[i]+h*a[i]/2 for i in range(3)),phase+w*h/2,*args)
         c=k.rate(tuple(y[i]+h*b[i]/2 for i in range(3)),phase+w*h/2,*args)
@@ -551,7 +702,10 @@ class ExternalLoweringModel(MechanicalModel):
         ac_change=new_mag-old_mag+(new_cap-old_cap if self.excitation_mode=='capacitor' else 0.)
         ac_work=h*(average(6)-average(7)-average(8)-average(9)-average(10)-average(3)*midomega)
         integration_error=abs(ac_change-ac_work)
-        if next_energy<0 or integration_error>1e-8+h*1e-4 or not all(math.isfinite(z.real) and math.isfinite(z.imag) for z in values):
+        # Reject/subdivide steps until the local electrical-work balance is
+        # tight, including converter-limit transitions.
+        work_tolerance=1e-8+h*1e-4
+        if next_energy<0 or integration_error>work_tolerance or not all(math.isfinite(z.real) and math.isfinite(z.imag) for z in values):
             s.brake_fraction=brake0
             self.rejected_steps+=1
             if h<1e-10: raise ValueError('Electrical step cannot satisfy positive energy / finite states')
@@ -651,7 +805,9 @@ class ExternalLoweringModel(MechanicalModel):
             p,e.battery_energy,self.max_electrical_step)
         r=k.rate((e.stator_flux,e.rotor_flux,e.voltage),e.phase,self.frequency(),omega,
                  e.dc_voltage,exciter_on,self.motor_connected,
-                 self.excitation_mode=='capacitor',e.aux_voltage,self.bridge_state(),active_limit)
+                 self.excitation_mode=='capacitor',e.aux_voltage,self.bridge_state(),active_limit,
+                 self.vf.flux_target if self.excitation_mode=='exciter' else None,
+                 self.vf.voltage_command if self.excitation_mode=='exciter' else None)
         v=r.terminal
         total_current=r.winding_current+(v*k.gc if self.motor_connected else 0j)
         power=1.5*(v*total_current.conjugate())
@@ -660,15 +816,16 @@ class ExternalLoweringModel(MechanicalModel):
         terminal_rate=r.voltage
         if self.excitation_mode=='exciter' and abs(v)>1e-3:
             eps=1e-7
-            requested=p.supply_frequency if self.controls.speed_request_hz is None else self.controls.speed_request_hz
-            df=((requested-p.startup_frequency)/p.startup_ramp
-                if self.startup_enabled and self.release_time is not None and 0<=s.time-self.release_time<p.startup_ramp else 0.)
+            delta=self.sequence.target_frequency-self.vf.frequency_command
+            df=(p.frequency_accel_rate if delta>.05 else
+                -p.frequency_decel_rate if delta<-.05 else 0.0)
             domega=0. if s.grounded else (self._drive(r.torque)-p.damping*omega)/(p.inertia+p.mass*p.radius**2)
             aux_probe=paths(p,e.battery_energy,r.supply,e.dc_voltage,self.max_electrical_step,self.charger_enabled)
             dvdc=(r.dc_input-e.chopper_duty*e.dc_voltage**2/p.dc_brake_resistance-aux_probe['charger_input'])/(k.cdc*e.dc_voltage) if e.dc_voltage>1e-5 else 0.
             probe=k.rate((e.stator_flux+eps*r.ps,e.rotor_flux+eps*r.pr,v),e.phase+eps*2*math.pi*self.frequency(),
                 self.frequency()+eps*df,omega+eps*domega,max(0.,e.dc_voltage+eps*dvdc),
-                exciter_on,True,False,e.aux_voltage,self.bridge_state(),active_limit)
+                exciter_on,True,False,e.aux_voltage,self.bridge_state(),active_limit,
+                self.vf.flux_target,self.vf.voltage_command)
             terminal_rate=(probe.terminal-v)/eps
         busfreq=(v.conjugate()*terminal_rate).imag/(abs(v)**2*2*math.pi) if abs(v)>1e-3 else 0
         sync=2*math.pi*busfreq/p.pole_pairs
@@ -677,38 +834,54 @@ class ExternalLoweringModel(MechanicalModel):
         battery_capacity=p.battery_capacity_wh*3600
         boost_i,_,boost_available,boost_requested=boost_current(
             p,e.aux_voltage,e.boost_current_state,e.battery_energy,
-            self.max_electrical_step,self.controls.master_on and self.switchgear.k_exc and self.inverter_enabled
-            and not self.controls.emergency_stop)
+            self.max_electrical_step,self.controls.master_on and not self.controls.emergency_stop
+            and e.aux_voltage<p.auxiliary_max_voltage)
         boost_output=e.aux_voltage*boost_i
         aux=paths(p,e.battery_energy,boost_output,e.dc_voltage,self.max_electrical_step,self.charger_enabled)
         battery_power=aux['power']
         axis=v/abs(v) if abs(v)>1e-12 else 1+0j
         inverter_components=r.exciter/axis/math.sqrt(2)
+        machine_components=total_current/axis/math.sqrt(2)
+        magnetic_storage_power=1.5*(r.winding_current.conjugate()*r.ps).real
+        _,rotor_current,_=k.currents(e.stator_flux,e.rotor_flux)
+        magnetic_storage_power+=1.5*(rotor_current.conjugate()*r.pr).real
         bridge_resistance=(p.rectifier_resistance+p.dc_precharge_resistance
                            if self.bridge_state()=='precharge' else p.rectifier_resistance)
         rectifier_current=(transfer(math.sqrt(1.5)*abs(v),e.dc_voltage,bridge_resistance)[0]
                            if self.bridge_state()!='isolated' else 0.0)
         aux_capacitor_power=boost_output-r.supply
         return dict(external_exciter=False,dc_exciter=False,
-            boost_enabled=self.controls.master_on and self.switchgear.k_exc and self.inverter_enabled,
-            boost_status=('OFF' if not self.controls.master_on or not self.switchgear.k_exc or not self.inverter_enabled else 'AUX READY' if e.aux_voltage>=p.aux_ready_voltage
+            boost_enabled=self.controls.master_on and not self.controls.emergency_stop,
+            boost_status=('OFF' if not self.controls.master_on or self.controls.emergency_stop else 'AUX READY' if e.aux_voltage>=p.aux_ready_voltage
                           else 'CHARGING AUXILIARY LINK'),
             excitation_mode=self.excitation_mode,start_mode=self.start_mode,
             startup_support=self.startup_support_active(),support_complete=self.support_complete,charger_enabled=self.charger_enabled,flux_angle=cmath.phase(r.flux),
             startup_status=self.startup_status,external_supply_power=0.0,core_loss=r.core,core_energy=e.core_energy,
             gear_energy=self.gear_energy,drivetrain_energy=self.drivetrain_energy,brake_energy=self.brake_energy,friction_energy=self.friction_energy,
             line_voltage=math.sqrt(1.5)*abs(v),bus_frequency=busfreq,
+            stator_frequency_command=(self.vf.frequency_command if self.excitation_mode=='exciter' else 0.0),
+            frequency_target=(self.sequence.target_frequency if self.excitation_mode=='exciter' else 0.0),
+            frequency_command_applicable=self.excitation_mode=='exciter',
+            voltage_command=self.vf.voltage_command if self.excitation_mode=='exciter' else 0.0,
+            flux_target=self.vf.flux_target if self.excitation_mode=='exciter' else 0.0,
+            maximum_flux=p.maximum_magnetic_flux,
             slip=(sync-omega)/sync if valid else 0,slip_valid=valid,synchronous_rpm=sync*60/(2*math.pi),
             motor_torque=r.torque,motor_mode='GENERATING' if power.real<-.01 else 'MOTORING' if power.real>.01 else 'UNEXCITED / TRANSIENT',
             motor_shaft_power=r.torque*omega,electrical_input=power.real,electrical_export=-power.real,
             stator_loss=1.5*p.stator_resistance*abs(r.winding_current)**2,rotor_loss=r.copper-1.5*p.stator_resistance*abs(r.winding_current)**2,
-            machine_line_current=abs(total_current)/math.sqrt(2),machine_reactive_demand=power.imag,
+            machine_line_current=abs(total_current)/math.sqrt(2),
+            machine_active_current=machine_components.real,
+            machine_reactive_current=-machine_components.imag,
+            machine_current_limit=p.motor_current_limit_rms,
+            machine_copper_loss=r.copper,machine_core_loss=r.core,
+            magnetic_storage_power=magnetic_storage_power,
+            machine_reactive_demand=power.imag,
             inverter_current=abs(r.exciter)/math.sqrt(2),
             inverter_active_current=max(0.0,inverter_components.real),
             inverter_reactive_current=-inverter_components.imag,
             inverter_real_power=supply_ac.real,inverter_reactive_supply=supply_ac.imag,
             inverter_apparent_power=abs(supply_ac),inverter_ac_voltage=math.sqrt(1.5)*abs(v),
-            inverter_status='STARTUP SUPPORT' if self.startup_support_active() and exciter_on else 'DISCONNECTED' if self.excitation_mode=='capacitor' else 'BATTERY EMPTY / OFF' if not exciter_on else 'SMALL EXCITER LIMIT' if r.limited else 'FLUX CONTROL',
+            inverter_status='STARTUP SUPPORT' if self.startup_support_active() and exciter_on else 'DISCONNECTED' if self.excitation_mode=='capacitor' else 'BATTERY EMPTY / OFF' if not exciter_on else 'V/F CURRENT LIMIT' if self.vf.current_limited else 'V/F FLUX LIMIT' if self.vf.flux_limited else 'SMALL EXCITER LIMIT' if r.limited else 'SCALAR V/F',
             inverter_loss=r.converter_loss,inverter_loss_energy=e.inverter_loss_energy,inverter_dc_power=r.supply,
             exciter_solver_status=r.solver_status,exciter_solver_iterations=r.solver_iterations,
             exciter_solver_residual=r.solver_residual,
@@ -730,7 +903,7 @@ class ExternalLoweringModel(MechanicalModel):
             dc_brake_power=duty*e.dc_voltage**2/p.dc_brake_resistance,
             dc_brake_energy=e.dc_brake_energy,chopper_active=duty>1e-4,chopper_enabled=self.chopper_enabled,
             chopper_duty=duty,chopper_command=(min(p.chopper_max_duty,max(0,(e.dc_voltage-p.chopper_threshold)/p.chopper_band))
-                if self.chopper_enabled and self.switchgear.k_main else 0),
+                if self.chopper_enabled else 0),
             battery_voltage=aux['voltage'],battery_current=aux['current'],battery_power=battery_power,
             battery_soc=100*e.battery_energy/battery_capacity,battery_remaining_wh=e.battery_energy/3600,
             battery_energy=e.battery_energy,battery_loss=aux['heat'],battery_loss_energy=e.battery_loss_energy,
@@ -749,6 +922,14 @@ class ExternalLoweringModel(MechanicalModel):
             k_cap= self.switchgear.k_cap,k_exc=self.switchgear.k_exc,
             k_precharge=self.switchgear.k_precharge,k_main=self.switchgear.k_main,
             main_dc_connection=self.bridge_state().upper(),fault=self.switchgear.fault,
+            sequence_state=self.sequence.name,sequence_state_elapsed=self.sequence.elapsed,
+            automatic_profile=self.controls.automatic_profile,
+            vf_current_limited=self.vf.current_limited,vf_flux_limited=self.vf.flux_limited,
+            power_transfer_limited=(self.sequence.name in ('LOWERING','SLOWDOWN_1','SLOWDOWN_2')
+                                    and (-power.real <= r.copper+r.core or r.dc_input <= 1.0)),
+            excitation_scale=self.vf.excitation_scale,runaway=self.sequence.runaway,
+            runaway_elapsed=self.sequence.runaway_elapsed,
+            overcurrent_elapsed=self.sequence.overcurrent_elapsed,
             control_power_available=self.controls.master_on and e.battery_energy>0,
             battery_ok=e.battery_energy>.1*battery_capacity,
             auxiliary_hv_ready=e.aux_voltage>=p.aux_ready_voltage,

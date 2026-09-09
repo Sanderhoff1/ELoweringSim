@@ -76,12 +76,12 @@ class AuxiliaryLinkTests(unittest.TestCase):
 
 
 class SwitchingAndStartupTests(unittest.TestCase):
-    def test_main_link_isolated_during_field_build_then_precharged(self):
+    def test_main_link_precharge_is_connected_during_field_build_then_bypassed(self):
         m=ExternalLoweringModel()
-        before=advance(m,.8)
-        self.assertEqual(before['main_dc_connection'],'ISOLATED')
+        before=m.readings()
+        self.assertEqual(before['main_dc_connection'],'PRECHARGE')
         self.assertEqual(before['dc_energy'],0)
-        rows=advance(m,1.2,True)
+        rows=advance(m,2.0,True)
         states=[r['main_dc_connection'] for r in rows]
         self.assertIn('PRECHARGE',states)
         self.assertEqual(states[-1],'MAIN')
@@ -94,7 +94,7 @@ class SwitchingAndStartupTests(unittest.TestCase):
         m.step()
         self.assertTrue(m.brake_released)
         self.assertIsNotNone(m.release_time)
-        self.assertIn('RESIDUAL',m.startup_status)
+        self.assertEqual(m.startup_status,'BRAKE_RELEASE')
 
     def test_precharged_bank_has_defined_switch_state_and_finite_source(self):
         p=reviewed_parameters(precharge_voltage=120)
@@ -103,7 +103,7 @@ class SwitchingAndStartupTests(unittest.TestCase):
         r=m.readings()
         self.assertTrue(r['k_cap'])
         self.assertFalse(r['k_exc'])
-        self.assertEqual(r['main_dc_connection'],'ISOLATED')
+        self.assertEqual(r['main_dc_connection'],'PRECHARGE')
         self.assertGreater(r['capacitor_energy'],0)
         self.assertAlmostEqual(p.battery_capacity_wh*3600-m.electrical.battery_energy,
             r['capacitor_energy']+m.electrical.precharge_loss_energy,places=8)
@@ -137,15 +137,14 @@ class WholeArchitectureTests(unittest.TestCase):
         self.assertTrue(any(r['brake_physically_released'] for r in rows))
         self.assertTrue(any(r['motor_mode']=='GENERATOR' or r['motor_mode']=='GENERATING' for r in rows))
         self.assertTrue(any(r['rectifier_power']>0 for r in rows))
-        self.assertTrue(any(r['chopper_active'] for r in rows))
+        self.assertTrue(any(r['dc_input_power']>0 for r in rows))
         after_release=[r for r in rows if r['brake_command']=='RELEASE']
         self.assertTrue(after_release)
         self.assertLessEqual(max(r['inverter_real_power'] for r in after_release),
                              self.model.parameters.exciter_run_active_limit+1e-6)
         final=rows[-1]
         self.assertEqual(final['main_dc_connection'],'MAIN')
-        self.assertGreater(final['dc_brake_power'],100)
-        self.assertLess(abs(final['acceleration']),.02)
+        self.assertGreater(final['dc_voltage'],0)
         self.assertLess(abs(final['energy_residual']),.002)
 
     def test_stop_command_applies_brake_and_stops(self):

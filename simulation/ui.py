@@ -1,19 +1,25 @@
 """Small standard-library UI: canvas animation, input fields, and history."""
 from collections import deque
-from dataclasses import dataclass, fields, replace
+import copy
+from dataclasses import fields, replace
+import json
 import math
 from pathlib import Path
 import statistics
 import sys
 import time
 import tkinter as tk
-from tkinter import ttk
+from tkinter import filedialog, ttk
+from types import SimpleNamespace
 from .parameters import Parameters
-from .mechanical import MechanicalModel, Playback
+from .mechanical import PHYSICS_DT, MechanicalModel, Playback
 from .dynamic_model import DynamicLoweringModel
 from .external_model import ExternalLoweringModel, reviewed_parameters
 from .energy_view import EnergyView
 from .examples import small_hoist
+from .replay_io import (ReplayFrame, ReplayState, load_pre_simulation,
+                        parameter_snapshot, replay_parameters,
+                        save_pre_simulation, scalar_configuration)
 
 DYNAMIC_FIELDS = {'stator_resistance', 'rotor_resistance', 'stator_leakage',
                   'rotor_leakage', 'saturation_flux', 'initial_flux',
@@ -34,36 +40,15 @@ TEXT_INTERVAL = 1/15
 FRAME_INTERVAL = 1/60
 DISCRETE_TELEMETRY = {
     'brake_command', 'brake_physical_state', 'motor_mode', 'inverter_status',
-    'boost_status', 'startup_status', 'main_dc_connection', 'fault', 'k_cap',
+    'boost_status', 'startup_status', 'sequence_state', 'main_dc_connection', 'fault', 'k_cap',
     'k_exc', 'k_precharge', 'k_main', 'charger_enabled', 'startup_support',
+    'frequency_command_applicable', 'vf_current_limited', 'vf_flux_limited',
+    'power_transfer_limited', 'automatic_profile', 'runaway',
     'support_complete', 'control_power_available', 'battery_ok',
     'auxiliary_hv_ready', 'field_ready', 'ac_bus_ready', 'dc_link_ready',
     'lowering', 'rectifier_enabled', 'dc_exciter', 'external_exciter',
     'boost_enabled', 'chopper_active', 'slip_valid', 'beyond_peak',
 }
-
-
-@dataclass(frozen=True)
-class ReplayState:
-    time: float
-    position: float
-    angle: float
-    omega: float
-    grounded: bool
-    impact_speed: float
-    impact_energy: float
-
-
-@dataclass(frozen=True)
-class ReplayFrame:
-    """One lightweight 50 Hz playback sample; no model graph or history copy."""
-    t: float
-    readings: dict
-    state: ReplayState
-    brake_released: bool
-    motor_connected: bool
-    inverter_enabled: bool
-    capacitors_enabled: bool
 
 
 def _wrapped_lerp(a, b, fraction):
@@ -140,6 +125,11 @@ class Application:
         self.presim_frames = []
         self.presim_index = 0
         self.presim_wall = 0.0
+        self.presim_parameter_snapshot = None
+        self.presim_run_configuration = None
+        self.replay_parameters = None
+        self.replay_model_context = None
+        self.loaded_replay_source = None
         self.replay_history = deque(maxlen=1500)
         self.live_readings = None
         self.live_readings_wall = 0.0
@@ -286,6 +276,10 @@ class Application:
         self.main_chopper.pack(fill='x')
         self.main_frequency=tk.Scale(controls,from_=.1,to=100,resolution=.1,orient='horizontal',label='Exciter target frequency [Hz]',command=lambda x:self.apply_main_value('supply_frequency',x))
         self.main_frequency.pack(fill='x')
+        self.automatic_profile=tk.BooleanVar(value=False)
+        ttk.Checkbutton(controls,text='Automatic 20 → 10 → 5 Hz sequence',
+                        variable=self.automatic_profile,
+                        command=self.apply_automatic_profile).pack(anchor='w',pady=(10,0))
         self.main_cap.set(self.model.parameters.capacitor_capacitance)
         self.main_chopper.set(self.model.parameters.chopper_threshold)
         self.main_frequency.set(self.model.parameters.supply_frequency)
@@ -297,6 +291,19 @@ class Application:
         self.presim_bar = ttk.Progressbar(controls, variable=self.presim_progress,
                                           maximum=100, mode='determinate')
         self.presim_bar.pack(fill='x')
+        self.presim_save_button = ttk.Button(
+            controls, text='Save Pre-Simulation', command=self.save_pre_simulation,
+            state='disabled')
+        self.presim_save_button.pack(fill='x', pady=(6, 2))
+        ttk.Button(controls, text='Load Pre-Simulation',
+                   command=self.load_pre_simulation).pack(fill='x', pady=2)
+        self.presim_view_button = ttk.Button(
+            controls, text='View Replay Parameters',
+            command=self.view_replay_parameters, state='disabled')
+        self.presim_view_button.pack(fill='x', pady=2)
+        self.replay_context_message = tk.StringVar(value='No pre-simulation replay loaded.')
+        ttk.Label(controls, textvariable=self.replay_context_message,
+                  wraplength=230, foreground='#666666').pack(anchor='w', pady=(4, 0))
         ttk.Label(parameter_controls, text="Illustrative inputs — replace with measured values.", wraplength=230).pack(anchor="w", pady=8)
         self.inputs = {}
         self.input_frames = {}
@@ -342,6 +349,12 @@ class Application:
     def apply_main_value(self, key, value):
         self.model.parameters=replace(self.model.parameters, **{key:float(value)})
         self.model.reset(); self.history.clear()
+
+    def apply_automatic_profile(self):
+        if isinstance(self.model,ExternalLoweringModel):
+            self.model.controls.automatic_profile=self.automatic_profile.get()
+            self.model.reset()
+            self.history.clear()
 
     def apply_topology(self):
         capacitor=self.excitation_choice.get()=='Capacitor only'
@@ -756,6 +769,151 @@ class Application:
         self.playing = not self.playing
         self.play_button.configure(text="Pause" if self.playing else "Play")
 
+    def capture_run_configuration(self, duration):
+        """Capture non-Parameter choices and numerical settings at run start."""
+        p = self.model.parameters
+        return {
+            'model_class': f'{type(self.model).__module__}.{type(self.model).__qualname__}',
+            'model_configuration': scalar_configuration(self.model),
+            'ui_configuration': {
+                'dynamic_mode': self.dynamic_mode.get(),
+                'converter_mode': self.converter_mode.get(),
+                'excitation_mode': self.excitation_choice.get(),
+                'startup_method': self.start_choice.get(),
+                'automatic_profile': self.automatic_profile.get(),
+                'requested_duration_s': duration,
+            },
+            'requested_frequency_sequence_hz': [
+                p.sequence_normal_frequency,
+                p.sequence_slowdown_1_frequency,
+                p.sequence_slowdown_2_frequency,
+            ] if self.automatic_profile.get() else [p.supply_frequency],
+            'numerical_configuration': {
+                'physics_step_s': PHYSICS_DT,
+                'maximum_electrical_step_s': getattr(self.model, 'max_electrical_step', None),
+                'telemetry_interval_s': TELEMETRY_INTERVAL,
+                'text_refresh_interval_s': TEXT_INTERVAL,
+                'animation_frame_interval_s': FRAME_INTERVAL,
+            },
+        }
+
+    def _build_replay_model_context(self):
+        """Create a display-only facade using saved, not editable, parameters."""
+        if self.replay_parameters is None:
+            self.replay_model_context = None
+            return
+        context = copy.copy(self.model)
+        context.parameters = self.replay_parameters
+        context.state = self.presim_frames[0].state
+        model_configuration = (self.presim_run_configuration or {}).get(
+            'model_configuration', {})
+        for name, value in model_configuration.items():
+            if isinstance(value, (str, bool, int, float)) or value is None:
+                try:
+                    setattr(context, name, value)
+                except (AttributeError, TypeError):
+                    pass
+        kernel = copy.copy(getattr(self.model, 'kernel', SimpleNamespace()))
+        kernel.cac = 3*self.replay_parameters.capacitor_capacitance*1e-6
+        context.kernel = kernel
+        self.replay_model_context = context
+
+    def display_parameters(self):
+        return self.replay_parameters if self.presim_frames and self.replay_parameters else self.model.parameters
+
+    def display_model(self, state):
+        if self.presim_frames and self.replay_model_context is not None:
+            self.replay_model_context.state = state
+            return self.replay_model_context
+        return self.model
+
+    def save_pre_simulation(self):
+        if not self.presim_frames or self.presim_parameter_snapshot is None:
+            self.message.set('Complete or load a pre-simulation before saving it.')
+            return
+        selected = filedialog.asksaveasfilename(
+            title='Save Pre-Simulation', defaultextension='.csv',
+            filetypes=(('CSV telemetry', '*.csv'), ('All files', '*.*')),
+            initialfile='pre-simulation.csv')
+        if not selected:
+            return
+        try:
+            csv_path, metadata_path, metadata = save_pre_simulation(
+                selected, self.presim_frames, self.presim_parameter_snapshot,
+                self.presim_run_configuration or {}, TELEMETRY_INTERVAL)
+        except (OSError, TypeError, ValueError) as error:
+            self.message.set(f'Could not save pre-simulation: {error}')
+            return
+        self.loaded_replay_source = csv_path
+        self.message.set(f'Saved {len(self.presim_frames)} replay frames to {csv_path.name} '
+                         f'with {metadata_path.name}.')
+        self.replay_context_message.set(
+            f'Replay saved as {csv_path.name}. Its parameter snapshot is separate from current inputs.')
+
+    def load_pre_simulation(self):
+        selected = filedialog.askopenfilename(
+            title='Load Pre-Simulation',
+            filetypes=(('Pre-simulation files', '*.csv *.json'),
+                       ('CSV telemetry', '*.csv'), ('JSON metadata', '*.json'),
+                       ('All files', '*.*')))
+        if not selected:
+            return
+        try:
+            loaded = load_pre_simulation(selected)
+            saved_parameters = loaded.metadata.get('parameters')
+            if not isinstance(saved_parameters, dict):
+                raise ValueError('Replay metadata has no complete parameter snapshot.')
+            display_parameters = replay_parameters(saved_parameters, self.model.parameters)
+        except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError) as error:
+            self.message.set(f'Could not load pre-simulation: {error}')
+            return
+        # Deliberately do not call reset() or step(): loading is pure replay I/O.
+        self.playing = False
+        self.play_button.configure(text='Play')
+        self.presim_running = False
+        self.presim_frames = list(loaded.frames)
+        self.presim_index = 0
+        self.presim_wall = 0.0
+        self.replay_history.clear()
+        self.presim_target = loaded.frames[-1].t
+        self.presim_seconds.set(f'{self.presim_target:g}')
+        self.presim_progress.set(100)
+        self.presim_parameter_snapshot = saved_parameters
+        self.presim_run_configuration = loaded.metadata.get('run_configuration', {})
+        self.replay_parameters = display_parameters
+        self.loaded_replay_source = loaded.csv_path
+        self._build_replay_model_context()
+        self.presim_save_button.configure(state='normal')
+        self.presim_view_button.configure(state='normal')
+        self.last_wall = time.perf_counter()
+        self.energy_view.refresh()
+        self.replay_context_message.set(
+            f'Loaded replay: {loaded.csv_path.name}\nSaved parameters are used only for replay display; current Parameters inputs are unchanged.')
+        self.message.set(f'Loaded {len(loaded.frames)} replay frames without running physics. Press Play.')
+
+    def view_replay_parameters(self):
+        if self.presim_parameter_snapshot is None:
+            return
+        window = tk.Toplevel(self.root)
+        window.title('Replay Parameters — read only')
+        window.geometry('760x680')
+        ttk.Label(window,
+                  text='Saved replay context (read only). Current editable Parameters are unchanged.',
+                  padding=8).pack(anchor='w')
+        text_widget = tk.Text(window, wrap='none', font=('Consolas', 9))
+        yscroll = ttk.Scrollbar(window, orient='vertical', command=text_widget.yview)
+        xscroll = ttk.Scrollbar(window, orient='horizontal', command=text_widget.xview)
+        text_widget.configure(yscrollcommand=yscroll.set, xscrollcommand=xscroll.set)
+        yscroll.pack(side='right', fill='y')
+        xscroll.pack(side='bottom', fill='x')
+        text_widget.pack(fill='both', expand=True)
+        content = {
+            'parameters': self.presim_parameter_snapshot,
+            'run_configuration': self.presim_run_configuration,
+        }
+        text_widget.insert('1.0', json.dumps(content, indent=2, ensure_ascii=False))
+        text_widget.configure(state='disabled')
+
     def pre_simulate(self):
         """Run the selected setup ahead of time, showing progress, then rewind.
 
@@ -777,7 +935,15 @@ class Application:
         self.reset()
         self.presim_frames = []
         self.presim_index = 0
+        self.presim_parameter_snapshot = parameter_snapshot(self.model.parameters)
+        self.presim_run_configuration = self.capture_run_configuration(duration)
+        self.replay_parameters = self.model.parameters
+        self.replay_model_context = None
+        self.loaded_replay_source = None
         self.presim_button.configure(state='disabled')
+        self.presim_save_button.configure(state='disabled')
+        self.presim_view_button.configure(state='disabled')
+        self.replay_context_message.set('Pre-simulation is running…')
         self.presim_progress.set(0)
         self.presim_target = duration
         self.presim_running = True
@@ -839,12 +1005,18 @@ class Application:
                 self.message.set(f'Pre-simulation complete ({self.presim_target:g} seconds, '
                                  f'{len(self.presim_frames)} lightweight frames). Press Play to run it.')
                 self.presim_wall = 0.0
+                self._build_replay_model_context()
+                self.presim_save_button.configure(state='normal')
+                self.presim_view_button.configure(state='normal')
+                self.replay_context_message.set(
+                    'Replay uses the captured run-start parameter snapshot. Current Parameters remain editable separately.')
             self.presim_button.configure(state='normal')
             self.reset(preserve_presim=True)
 
     def reset(self, preserve_presim=False):
         if isinstance(self.model,ExternalLoweringModel):
             self.model.startup_enabled=True
+            self.model.controls.automatic_profile=self.automatic_profile.get()
         self.model.reset()
         self.released.set(self.model.brake_released)
         self.sync_capacitance_slider()
@@ -861,6 +1033,15 @@ class Application:
             self.presim_frames = []
             self.presim_index = 0
             self.presim_wall = 0.0
+            self.presim_parameter_snapshot = None
+            self.presim_run_configuration = None
+            self.replay_parameters = None
+            self.replay_model_context = None
+            self.loaded_replay_source = None
+            if hasattr(self, 'presim_save_button'):
+                self.presim_save_button.configure(state='disabled')
+                self.presim_view_button.configure(state='disabled')
+                self.replay_context_message.set('No pre-simulation replay loaded.')
 
     def tick(self):
         frame_started = time.perf_counter()
@@ -976,8 +1157,14 @@ class Application:
         voltage_note = 'V RMS-equivalent' if dynamic else 'V RMS'
         field_note = f"Flux: {r.get('flux_magnitude',0):.4f} Wb turn" if dynamic else f"Effective peak torque: {r['effective_peak_torque']:.1f} N m"
         frequency_note = f"Bus frequency: {r.get('bus_frequency',0):.2f} Hz (vector estimate)" if dynamic else f"Frequency: {self.model.parameters.supply_frequency:g} Hz (fixed setpoint)"
-        label(22, 660, f"AC line voltage: {r['line_voltage']:.2f} {voltage_note}\n{frequency_note}\nExciter setting: {self.model.parameters.supply_frequency:g} Hz, {self.model.parameters.volts_per_hz:g} V/Hz\n{field_note}")
-        label(470, 660, f"Inverter current: {r['inverter_current']:.3f} A RMS\nNet inverter VAR: {r['inverter_reactive_supply']:+.1f} var\nInverter real power: {r['inverter_real_power']:.1f} W\nMachine line current: {r['machine_line_current']:.3f} A RMS")
+        command_note=(f"V/f command: {r['stator_frequency_command']:.2f} -> {r['frequency_target']:.2f} Hz; {r['voltage_command']:.1f} V LL"
+                      if r.get('frequency_command_applicable') else 'Passive mode: no frequency or voltage command')
+        field_note=(f"Flux: {r.get('flux_magnitude',0):.4f} / {r['maximum_flux']:.3f} Wb turn"
+                    if 'maximum_flux' in r else field_note)
+        machine_current=(f"{r['machine_line_current']:.3f} / {r['machine_current_limit']:.3f} A RMS"
+                         if 'machine_current_limit' in r else f"{r['machine_line_current']:.3f} A RMS")
+        label(22, 660, f"AC line voltage: {r['line_voltage']:.2f} {voltage_note}\n{frequency_note}\n{command_note}\n{field_note}")
+        label(470, 660, f"Inverter current: {r['inverter_current']:.3f} A RMS\nNet inverter VAR: {r['inverter_reactive_supply']:+.1f} var\nInverter real power: {r['inverter_real_power']:.1f} W\nMachine line current: {machine_current}\nMachine active/reactive current: {r.get('machine_active_current',0):+.3f} / {r.get('machine_reactive_current',0):+.3f} A")
         label(22, 756, f"DC-fed: {r['inverter_dc_power']:+.1f} W from DC · {r['inverter_loss']:.1f} W loss · ceiling {r['inverter_voltage_limit']:.1f} V LL · limit {self.model.parameters.inverter_current_limit:g} A" if r.get('dc_exciter') else f"External supply {r['external_supply_power']:.1f} W · converter loss {r['inverter_loss']:.1f} W · limited active power; passive regeneration" if r.get('external_exciter') else 'Ideal inverter uses an external energy source/sink; OFF means zero inverter current.' if dynamic else "Inverter VAR: positive supplies, negative absorbs. Real watts use the ideal P boundary.", color='#93a3ba', size=10)
         label(22, 795, "PARALLEL AC CAPACITORS · DELTA", color='#4ee1bd', size=12)
         label(22, 826, f"Bank: {'CONNECTED' if flags['capacitors_enabled'] else 'DISCONNECTED'}\nCapacitance: {self.model.parameters.capacitor_capacitance:g} µF per branch\nCapacitor supply: {r['capacitor_reactive_supply']:.1f} var\nCapacitor line current: {r['capacitor_line_current']:.3f} A RMS")

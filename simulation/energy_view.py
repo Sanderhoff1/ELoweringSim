@@ -254,8 +254,6 @@ class EnergyView:
             self._fixed_line('field_line_'+str(index), [(844,558),(844,558)], '#283c50', 1)
         self._text('field_value', 844, 580, '', 12, TEAL)
         self._text('field_note', 844, 598, 'Brightness: log scale', 11, MUTED)
-        self._flow('battery_storage', [(20,245),(9,245),(9,625),(50,625)], TEAL)
-        self._text('battery_storage_text', 160, 626, '', 11, TEAL)
         self._text('residual', 480, 647, '', 11, MUTED)
         self._text('sign_note', 480, 669,
                    'Signed battery current: + discharge / - charge. Ieq: averaged bridge fundamental equivalent.',
@@ -324,7 +322,14 @@ class EnergyView:
         comp, ports = d['components'], d['connections']
         cap = model.excitation_mode == 'capacitor'
         if update_text:
-            self._set_text('status', f"{'RUNNING' if playing else 'PAUSED'}  |  {r.get('_time', model.state.time):.2f} s")
+            limit=('CURRENT LIMIT' if r.get('vf_current_limited') else
+                   'FLUX LIMIT' if r.get('vf_flux_limited') else
+                   'POWER TRANSFER LIMIT' if r.get('power_transfer_limited') else 'NORMAL')
+            frequency=(f" | f* {r['stator_frequency_command']:.1f}/{r['frequency_target']:.1f} Hz"
+                       if r.get('frequency_command_applicable') else ' | frequency emergent')
+            self._set_text('status',
+                           f"{'RUNNING' if playing else 'PAUSED'} | {r.get('_time', model.state.time):.2f} s | "
+                           f"{r.get('sequence_state','MANUAL')}{frequency} | {limit}")
             charge = ports['charger_battery']
             self._set_text('charger_battery_summary',
                            f"Charge: {charge['voltage']:.1f} V | {charge['current']:.2f} A | {charge['power']:.1f} W ←")
@@ -332,7 +337,8 @@ class EnergyView:
             self._set_text('boost_state', 'averaged')
             self._set_text('aux_state', 'C_aux')
             self._set_text('exciter_title', ('CAP + START' if r['startup_support'] else 'CAP BANK') if cap else 'EXCITER')
-            self._set_text('exciter_state', f"dE {comp['capacitor']['storage_rate']:+.2g} W" if cap else 'flux control')
+            self._set_text('exciter_state',
+                           (f"K_CAP {'CLOSED' if r['k_cap'] else 'OPEN'}\nK_EXC {'CLOSED' if r['k_exc'] else 'OPEN'}"))
             self._set_text('inverter_current', f"{r['inverter_current']:.2f} A RMS")
             self._set_text('charger_state', 'ON - click' if r.get('charger_enabled', model.charger_enabled) else 'OFF - click')
             self._set_text('charger_efficiency', f"{p.charger_efficiency*100:.0f}% eff.")
@@ -342,12 +348,17 @@ class EnergyView:
                            f"Battery {r['battery_voltage']:.2f} V | {r['battery_current']:+.2f} A | {r['battery_power']:+.1f} W")
             self._set_text('exciter_heat_text', f"{comp['exciter']['heat']:.1f} W exciter heat")
             self._set_text('main_load_state', f"{r['position']:.2f} m")
-            self._set_text('main_gear_state', 'shaft')
+            self._set_text('main_gear_state', f"BRAKE\n{r['brake_physical_state']}")
             self._set_text('main_machine_state', f"{r['flux_magnitude']:.2g} Wb")
             self._set_text('main_ac_bus_state', f"{r['bus_frequency']:.1f} Hz")
             self._set_text('main_rectifier_state', r['main_dc_connection'])
+            self._set_text('rectifier_note',
+                           f"K_PRECHARGE {'CLOSED' if r['k_precharge'] else 'OPEN'} + "
+                           f"R_PRE {p.dc_precharge_resistance:g} ohm ({r['dc_precharge_power']:.1f} W)\n"
+                           f"K_MAIN {'CLOSED' if r['k_main'] else 'OPEN'}")
             self._set_text('main_dc_link_state', f"{r['dc_energy']:.1f} J")
-            self._set_text('main_chopper_state', f"{r['chopper_duty']*100:.0f}% duty")
+            self._set_text('main_chopper_state',
+                           f"CTRL {'ON' if r['chopper_enabled'] else 'OFF'}\n{r['chopper_duty']*100:.0f}% duty")
             self._set_text('main_resistor_state', f"{p.dc_brake_resistance:.0f} ohm")
             for name in ('dc_charger','battery_boost','boost_aux','aux_exciter','aux_bus'):
                 self._update_transfer(name+'_transfer', ports[name])
@@ -364,8 +375,6 @@ class EnergyView:
                 item = comp[key]
                 self._set_text(key+'_storage_text',
                                f"{item['storage_rate']:+.1f} W\n{item['energy']:.2f} J")
-            self._set_text('battery_storage_text',
-                           f"Battery storage {comp['battery']['storage_rate']:+.1f} W")
             self._set_text('residual',
                            f"Conservation residual {r['energy_residual']:+.6f} J   |   AC KCL {abs(d['kcl']):.2e} A")
 
@@ -393,7 +402,6 @@ class EnergyView:
             values[key+'_component_heat'] = comp[key]['heat']
         for key in ('load','gear','machine','dc_link'):
             values[key+'_storage'] = comp[key]['storage_rate']
-        values['battery_storage'] = comp['battery']['storage_rate']
         return values
 
     def _point_on_path(self, points, fraction, reverse=False):

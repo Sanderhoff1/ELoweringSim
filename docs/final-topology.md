@@ -50,18 +50,21 @@ bounded discrete energy solve, so there is no hidden infinite HV source.
 
 ## Main DC-link connection
 
-At reset both `K_PRECHARGE` and `K_MAIN` are open. The AC bus therefore does not
-see an empty `C_dc` during auxiliary-link charging or field building. The
-controller closes `K_PRECHARGE` from encoderless electrical measurements: either
-the configured terminal-export threshold, or adequate AC voltage with positive
-machine demand fallen essentially to zero after brake release. The bridge then charges `C_dc` through
-`R_precharge`. When `V_dc` reaches the configured fraction of the available
-rectified crest, `K_MAIN` closes and bypasses the resistor. A timeout latches an
-explicit fault and commands brake application.
+With the main DC path enabled, `K_PRECHARGE` is closed from reset and the bridge
+sees `C_dc` through the real `R_precharge`. There is no AC-voltage, exported-power,
+motor-rating or startup-readiness permission in the passive conduction path.
+The bridge conducts whenever the rectified instantaneous source exceeds `V_dc`;
+otherwise its diodes block. When `V_dc` reaches the configured fraction of the
+present rectified crest, the controller commands the physical `K_MAIN` bypass
+contactor. A timeout latches an explicit protection fault and commands brake
+application. `ControlInputs.main_dc_enable` commands isolation through these
+contactors, and `main_bypass_command` can explicitly hold the resistor path or
+command the bypass for commissioning/tests.
 
 The averaged precharge-resistor loss is separated from bridge/source loss and
-accumulated in `dc_precharge_loss_energy`. No contact bounce or diode/PWM ripple
-is represented.
+accumulated in `dc_precharge_loss_energy`. The chopper remains physically across
+`C_dc` in every contactor state and responds to actual link voltage. No contact
+bounce or diode/PWM ripple is represented.
 
 ## Startup modes
 
@@ -71,6 +74,12 @@ transition through synchronous speed into generation. Rotor speed and slip are
 never forced. `ControlInputs.speed_request_hz` is the future potentiometer/
 operator frequency request; it defaults to the parameter value.
 
+The optional canonical profile continues through `LOWERING` (20 Hz),
+`SLOWDOWN_1` (10 Hz), `SLOWDOWN_2` (5 Hz), and `BRAKE_APPLY`. Frequency changes
+use configured ramps. Excitation remains connected until physical brake feedback
+and low speed qualify `STOPPED`. Capacitor-only mode shares these brake/fault
+states but receives no frequency or voltage command.
+
 In capacitor-only residual startup, `K_CAP` is closed, `K_EXC` is open and the
 brake is commanded to release immediately. Rotation is therefore available to
 turn residual flux into terminal voltage; field qualification is not awaited at
@@ -78,9 +87,10 @@ standstill. Zero residual flux remains zero in this deterministic model.
 
 For the precharged-bank case, the capacitor bank is defined as connected to the
 machine during the finite, lossy initialization transfer from the 24 V battery.
-The rectifier/main DC link remains isolated. The initial energy inventory
-includes capacitor energy, battery depletion and precharge heat, so reset does
-not create energy or numerically connect incompatible capacitor voltages.
+The main DC link is still connected through `K_PRECHARGE` and `R_precharge`; diode
+polarity alone decides whether the charged AC bank transfers energy into it. The
+initial energy inventory includes capacitor energy, battery depletion and
+precharge heat, so reset does not create energy.
 
 ## Brake and controller interface
 

@@ -1,8 +1,8 @@
 # Instantaneous and accumulated conservation
 
 The running topology is `ExternalLoweringModel` (the historical class name is
-retained for compatibility). The supplied checkout does not contain Git metadata;
-the earlier documented baseline was `3b290f5ef650abb53bc0a31faca7201975731b84`.
+retained for compatibility). This review started from current HEAD
+`ba04d142871a721a76d8af62ba0a07807e64a667`.
 The model's only energy inputs are finite battery energy, explicit initial stored
 energy and decreasing load height. `external_supply_voltage` is a legacy
 parameter and cannot supply this model.
@@ -63,10 +63,11 @@ the field and never enters a real-power or accumulated-energy residual.
 
 ## Exciter-only constraint and voltage capability
 
-There is no AC capacitor state in exciter mode. A flux-magnitude controller
-commands a Thevenin voltage behind the configured output resistance, with
-winding-current feedforward. The command uses the actual flux direction so
-current limiting can change field phase without destabilizing the controller.
+There is no AC capacitor state in exciter mode. A scalar V/f controller ramps
+frequency and requests line-RMS voltage from the configured V/Hz slope plus
+measured `sqrt(3) R_s I_s` compensation. Flux and motor-current feedback derate
+the requested voltage and flux target before the network solve. It is not FOC
+and has no d/q torque-current loop or shaft-speed estimator.
 
 Every integration stage solves the two real equations
 `i_exciter = i_stator + v/R_core + i_rectifier` for terminal voltage.
@@ -91,10 +92,10 @@ for the normal field plus winding/output voltage drops. This auxiliary output
 is separate from the approximately 524 V brake DC link. Its current ceiling is
 `P_boost,out / V_boost <= boost_output_current_limit`.
 
-The charger enables at 480 V in the normal example. The old 50 V setting could
-load startup with a 150 W constant-power charger before useful generation.
-Both voltage settings remain configurable. Battery limitations can still
-prevent startup; the controller does not manufacture missing real power.
+The charger converter's specified operating range begins at 480 V in the normal
+example. Below that input voltage its controller cannot operate; at or above it,
+SOC, current, power and efficiency limits determine its draw. Battery limitations
+can still prevent startup; the controller does not manufacture missing real power.
 
 ## Battery, boost and charger
 
@@ -117,18 +118,21 @@ integration to hide missing energy.
 ## Reset, integration and limitations
 
 Capacitor-bank precharge is an explicit initialization transfer with `K_CAP`
-already connecting the bank to the machine and the main rectifier path isolated.
+already connecting the bank to the machine. The main rectifier path is connected
+through `K_PRECHARGE` and `R_precharge` when the main DC path is enabled.
 AC energy is `1/2 C_ac V_LL²`, bounded by finite battery energy and boost voltage
 capability. Battery removal is `E_ac / precharge_efficiency`; the difference is
 accumulated initialization heat. No incompatible charged capacitors are switched
 together at reset.
 
-Main DC-link precharge is dynamic. `K_PRECHARGE` closes from terminal-power and
-AC-voltage readiness measurements after brake release; it does not use rotor
-speed or internal electromagnetic torque. `R_precharge` limits charging of
-`C_dc`. `K_MAIN` bypasses
-the resistor at the configured voltage fraction. Bridge/source loss and
-precharge-resistor loss are distinct accumulated sinks.
+Main DC-link precharge is dynamic. Enabling the main DC path commands the real
+`K_PRECHARGE` contactor immediately; it is not conditional on terminal power,
+AC voltage, motor rating, brake release or any readiness flag. `R_precharge`
+limits physical charging of `C_dc`. Diode polarity decides whether current flows.
+`K_MAIN` is a real contactor that bypasses the resistor when commanded, normally
+after the measured DC voltage matches the available rectified crest. Bridge/source
+loss and precharge-resistor loss are distinct accumulated sinks. The chopper is
+connected across `C_dc` and is not gated by `K_MAIN`.
 
 The accumulated residual is current height + kinetic + magnetic + AC capacitor
 + auxiliary capacitor + main DC capacitor + battery energy, minus initial
@@ -148,6 +152,9 @@ acceleration and steady lowering. Run `python -m simulation.architecture_demo`
 for the full sequence, sizing peaks, CSV and SVG plot. Run
 `python -m simulation.preview_energy` for previews rendered from the actual Tk
 canvas geometry at the normal application size with its sidebar present.
+The reviewed 20 -> 10 -> 5 Hz sequence and passive-capacitance sweep are
+regenerated with `python -m simulation.automatic_sequence` and
+`python -m simulation.capacitor_sweep`; see [scalar-vf-control.md](scalar-vf-control.md).
 
 
 ## Startup support and live controls

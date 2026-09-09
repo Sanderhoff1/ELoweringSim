@@ -18,16 +18,19 @@ C_dc -> charger -> 24 V battery
 
 Run `python -m simulation`, select **Exciter only**, then press **Play**. The
 automatic sequence charges the auxiliary link, builds flux with the brake held,
-commands brake release, ramps electrical frequency, waits for natural generating
-slip, precharges the main DC link, closes the main contactor and regulates energy
-through the chopper/resistor. The estimated 300 kg example reaches about
-**16.7 m/min**; the exact speed is not a hardware prediction.
+commands brake release and ramps electrical frequency. Throughout startup the
+passive bridge can charge the main link through `K_PRECHARGE` and the real series
+resistor whenever diode voltage permits. The controller later closes `K_MAIN`,
+and the independently connected chopper regulates energy through the resistor.
+Select **Automatic 20 -> 10 -> 5 Hz sequence** to run the canonical lowering,
+two-step slowdown, brake-apply, and stop profile. The exact speed is not a
+hardware prediction.
 
 **Capacitor only** disconnects `K_EXC`. Residual startup releases the brake first
 because a stationary induction machine cannot build voltage from residual flux.
 The precharged-bank case defines the bank as connected to the machine while the
-main rectifier/DC link remains isolated, avoiding an incompatible-voltage
-contactor impulse.
+main rectifier/DC link remains connected through its precharge resistor. Diode
+polarity, rather than a startup flag, determines whether power transfers.
 
 The Energy Flow tab shows the complete main path left to right. Connection
 labels carry live mechanical, AC and DC transfer quantities. Gold particles
@@ -38,6 +41,11 @@ capacity, boost limits and charger limits.
 
 - [Architecture, control states and model boundary](docs/final-topology.md)
 - [Conservation equations and model assumptions](docs/power-model.md)
+- [Hidden-switch audit](docs/hidden-switch-audit.md)
+- [Scalar V/f controller and automatic sequence](docs/scalar-vf-control.md)
+- [Canonical exciter operating-point review](docs/automatic-sequence-exciter.md)
+- [Capacitor-only capacitance sweep](docs/capacitor-sweep.md)
+- [Canonical capacitor-only natural operating point](docs/automatic-sequence-capacitor.md)
 - [300 kg startup sequence, sizing peaks and plot](docs/architecture-demo.md)
 - [Component tables at startup, acceleration and steady lowering](docs/power-balance-results.md)
 - [Energy Flow preview](energy-preview.png) and [capacitor preview](docs/capacitor-preview.png)
@@ -45,7 +53,8 @@ capacity, boost limits and charger limits.
 
 Regenerate tables with `python -m simulation.power_review`, the startup report
 with `python -m simulation.architecture_demo`, and previews with
-`python -m simulation.preview_energy`. The previews
+`python -m simulation.preview_energy`. Regenerate the canonical scalar V/f and
+capacitor-only traces with `python -m simulation.automatic_sequence`. The previews
 render the actual Tk canvas geometry at the normal window size, with the
 sidebar's space reserved, and work without an unlocked desktop. If a sandboxed
 Python exposes `_tkinter` but hides its Tcl/Tk scripts, preview generation stages

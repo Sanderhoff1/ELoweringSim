@@ -56,7 +56,7 @@ class StartupControlsTests(unittest.TestCase):
         self.assertGreaterEqual(before,m.parameters.startup_flux_fraction*m.parameters.exciter_flux_target)
         self.assertGreaterEqual(m.support_qualified_time,m.parameters.startup_dwell)
         r=self.balance(m)
-        self.assertEqual(r['boost_power'],0)
+        self.assertGreater(r['boost_power'],0)  # Recharges C_aux after inverter handoff.
         self.assertEqual(r['inverter_current'],0)
         for _ in range(50):m.step()
         self.assertFalse(self.balance(m)['startup_support'])
@@ -84,14 +84,15 @@ class StartupControlsTests(unittest.TestCase):
         for _ in range(5):m.step()
         r=self.balance(m)
         self.assertEqual(r['charger_power'],0)
-        self.assertEqual(r['battery_current'],0)
-        self.assertEqual(m.electrical.battery_energy,initial)
+        self.assertGreater(r['battery_current'],0)  # Boost remains a separate live load.
+        self.assertLess(m.electrical.battery_energy,initial)
+        without_charger=m.electrical.battery_energy
         canvas.bindings['<Button-1>'](click)
         self.assertTrue(m.charger_enabled)
         m.step()
         r=self.balance(m)
         self.assertLess(r['charger_power'],0)
-        self.assertGreater(m.electrical.battery_energy,initial)
+        self.assertGreater(m.electrical.battery_energy,without_charger)
         view.draw(m,r,[],False)
         self.assertIn('ON - click',[o.get('text') for _,_,o in canvas.items])
 
@@ -122,5 +123,11 @@ class StartupControlsTests(unittest.TestCase):
         self.assertNotIn(('all',),canvas.deletes)
         self.assertEqual(canvas.deletes,[])
 
+    def test_energy_scene_names_every_topology_switch_and_brake_state(self):
+        canvas=Canvas();view=EnergyView(canvas,lambda:None)
+        m=ExternalLoweringModel();view.draw(m,m.readings(),[],False)
+        text='\n'.join(o.get('text','') for _,_,o in canvas.items)
+        for label in ('K_CAP','K_EXC','K_PRECHARGE','K_MAIN','BRAKE','APPLIED'):
+            self.assertIn(label,text)
 
 if __name__=='__main__':unittest.main()
