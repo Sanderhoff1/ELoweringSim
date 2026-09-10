@@ -14,6 +14,7 @@ from .capacitor_rectifier import transfer, midpoint_voltage
 from .external_exciter import current as exciter_current
 from .examples import small_hoist
 from .auxiliary import (auxiliary_step, boost_current, boost_limit, paths)
+from .converter_controls import chopper, chopper_target
 from .scalar_vf import ScalarVFState, base_flux, step as scalar_vf_step
 
 
@@ -99,6 +100,7 @@ class ElectricalState:
     phase: float=0.0
     time: float=0.0
     chopper_duty: float=0.0
+    measured_frequency: float=0.0
     source_energy: float=0.0
     copper_energy: float=0.0
     core_energy: float=0.0
@@ -433,6 +435,14 @@ class ExternalLoweringModel(MechanicalModel):
             return self.parameters.startup_frequency if self.startup_support_active() else 0.0
         return self.vf.frequency_command
 
+    def chopper_frequency(self, measured_frequency=None):
+        """Controller schedule input: command in exciter mode, measurement in passive mode."""
+        if self.excitation_mode=='exciter':
+            return max(0.0,self.vf.frequency_command)
+        estimate=(self.electrical.measured_frequency if measured_frequency is None
+                  else measured_frequency)
+        return max(0.0,estimate)
+
     def bridge_state(self):
         return ('main' if self.switchgear.k_main else 'precharge'
                 if self.switchgear.k_precharge else 'isolated')
@@ -533,7 +543,13 @@ class ExternalLoweringModel(MechanicalModel):
                 if seq.at_target_elapsed>=p.sequence_slowdown_1_hold:self._transition('SLOWDOWN_2')
             elif seq.name=='SLOWDOWN_2':
                 self.brake_released=True
-                if seq.at_target_elapsed>=p.sequence_slowdown_2_hold:self._transition('BRAKE_APPLY')
+                if seq.at_target_elapsed>=p.sequence_slowdown_2_hold:self._transition('SLOWDOWN_3')
+            elif seq.name=='SLOWDOWN_3':
+                self.brake_released=True
+                if seq.at_target_elapsed>=p.sequence_slowdown_3_hold:self._transition('SLOWDOWN_4')
+            elif seq.name=='SLOWDOWN_4':
+                self.brake_released=True
+                if seq.at_target_elapsed>=p.sequence_slowdown_4_hold:self._transition('BRAKE_APPLY')
             elif seq.name=='BRAKE_APPLY':
                 self.brake_released=False
                 if s.brake_fraction>=.99 and abs(p.radius*s.omega)<=p.sequence_stop_speed:
@@ -550,7 +566,9 @@ class ExternalLoweringModel(MechanicalModel):
                      'LOWERING':p.sequence_normal_frequency if self.controls.automatic_profile else requested,
                      'SLOWDOWN_1':p.sequence_slowdown_1_frequency,
                      'SLOWDOWN_2':p.sequence_slowdown_2_frequency,
-                     'BRAKE_APPLY':p.sequence_slowdown_2_frequency,
+                     'SLOWDOWN_3':p.sequence_slowdown_3_frequency,
+                     'SLOWDOWN_4':p.sequence_slowdown_4_frequency,
+                     'BRAKE_APPLY':p.sequence_slowdown_4_frequency,
                      'STOPPED':0.0,'FAULT':0.0,'OFF':0.0}
             seq.target_frequency=targets.get(seq.name,0.0)
             if self.excitation_mode=='exciter':
@@ -563,14 +581,14 @@ class ExternalLoweringModel(MechanicalModel):
                     seq.at_target_elapsed=0.0
 
         active_states=('EXCITATION_BUILD','READY_TO_RELEASE','BRAKE_RELEASE','LOWERING',
-                       'SLOWDOWN_1','SLOWDOWN_2','BRAKE_APPLY')
+                       'SLOWDOWN_1','SLOWDOWN_2','SLOWDOWN_3','SLOWDOWN_4','BRAKE_APPLY')
         sw.k_exc=((self.excitation_mode=='exciter' and seq.name in active_states)
                   or self.startup_support_active())
 
         velocity=abs(p.radius*s.omega)
         acceleration=(self._drive(self.kernel.torque(e.stator_flux,e.rotor_flux))-
                       p.damping*s.omega)*p.radius/(p.inertia+p.mass*p.radius**2)
-        loss_of_control=(seq.name in ('LOWERING','SLOWDOWN_1','SLOWDOWN_2') and
+        loss_of_control=(seq.name in ('LOWERING','SLOWDOWN_1','SLOWDOWN_2','SLOWDOWN_3','SLOWDOWN_4') and
                          self.vf.current_limited and measured_export<p.runaway_min_export_power
                          and velocity>.02 and acceleration>0)
         runaway_now=velocity>p.runaway_speed_limit or loss_of_control
@@ -651,8 +669,9 @@ class ExternalLoweringModel(MechanicalModel):
         midomega=s.omega
         s.time,s.position,s.angle,s.omega=saved
         frequency=self.frequency()
-        command=(min(p.chopper_max_duty,max(0.0,(e.dc_voltage-p.chopper_threshold)/p.chopper_band))
-                 if self.chopper_enabled else 0.0)
+        control_frequency=self.chopper_frequency()
+        command,_=chopper(p,e.dc_voltage,e.chopper_duty,self.chopper_enabled,
+                          control_frequency)
         duty=command+(e.chopper_duty-command)*math.exp(-h/(2*p.chopper_response))
         bridge_state=self.bridge_state()
         bridge_resistance=(p.rectifier_resistance+p.dc_precharge_resistance
@@ -744,6 +763,11 @@ class ExternalLoweringModel(MechanicalModel):
         e.aux_output_energy+=h*average(6)
         e.phase=(phase+w*h)%(2*math.pi)
         e.time+=h
+        if self.excitation_mode=='capacitor':
+            terminal_rate=average(2)
+            measured=((values[2].conjugate()*terminal_rate).imag/
+                      (abs(values[2])**2*2*math.pi) if abs(values[2])>1e-3 else 0.0)
+            e.measured_frequency=max(0.0,measured)
         e.chopper_duty=command+(e.chopper_duty-command)*math.exp(-h/p.chopper_response)
         # Converter input comes solely from the finite 24 V battery.
         e.battery_energy+=h*aux['storage']
@@ -832,6 +856,10 @@ class ExternalLoweringModel(MechanicalModel):
         sync=2*math.pi*busfreq/p.pole_pairs
         valid=abs(sync)>1e-3
         duty=e.chopper_duty
+        target_frequency=self.chopper_frequency(busfreq)
+        dc_target=chopper_target(p,target_frequency)
+        chopper_command=chopper(p,e.dc_voltage,duty,self.chopper_enabled,
+                                target_frequency)[0]
         battery_capacity=p.battery_capacity_wh*3600
         boost_i,_,boost_available,boost_requested=boost_current(
             p,e.aux_voltage,e.boost_current_state,e.battery_energy,
@@ -909,8 +937,13 @@ class ExternalLoweringModel(MechanicalModel):
             dc_capacitor_power=r.dc_input-duty*e.dc_voltage**2/p.dc_brake_resistance-aux['charger_input'],
             dc_brake_power=duty*e.dc_voltage**2/p.dc_brake_resistance,
             dc_brake_energy=e.dc_brake_energy,chopper_active=duty>1e-4,chopper_enabled=self.chopper_enabled,
-            chopper_duty=duty,chopper_command=(min(p.chopper_max_duty,max(0,(e.dc_voltage-p.chopper_threshold)/p.chopper_band))
-                if self.chopper_enabled else 0),
+            chopper_duty=duty,chopper_command=chopper_command,
+            chopper_target_voltage=dc_target,chopper_target_frequency=target_frequency,
+            chopper_current=duty*e.dc_voltage/p.dc_brake_resistance,
+            chopper_current_limited=(chopper_command>=p.chopper_max_current*p.dc_brake_resistance/max(e.dc_voltage,1e-12)-1e-9
+                                     and chopper_command>0),
+            main_dc_overvoltage_limit=p.main_dc_max_voltage,
+            main_dc_overvoltage=(e.dc_voltage>p.main_dc_max_voltage),
             battery_voltage=aux['voltage'],battery_current=aux['current'],battery_power=battery_power,
             battery_soc=100*e.battery_energy/battery_capacity,battery_remaining_wh=e.battery_energy/3600,
             battery_energy=e.battery_energy,battery_loss=aux['heat'],battery_loss_energy=e.battery_loss_energy,
@@ -933,7 +966,7 @@ class ExternalLoweringModel(MechanicalModel):
             automatic_profile=self.controls.automatic_profile,
             vf_current_limited=self.vf.current_limited,vf_flux_limited=self.vf.flux_limited,
             vf_voltage_limited=self.vf.voltage_limited,
-            power_transfer_limited=(self.sequence.name in ('LOWERING','SLOWDOWN_1','SLOWDOWN_2')
+            power_transfer_limited=(self.sequence.name in ('LOWERING','SLOWDOWN_1','SLOWDOWN_2','SLOWDOWN_3','SLOWDOWN_4')
                                     and (-power.real <= r.copper+r.core or r.dc_input <= 1.0)),
             excitation_scale=self.vf.excitation_scale,runaway=self.sequence.runaway,
             runaway_elapsed=self.sequence.runaway_elapsed,
@@ -943,7 +976,7 @@ class ExternalLoweringModel(MechanicalModel):
             auxiliary_hv_ready=e.aux_voltage>=p.aux_ready_voltage,
             field_ready=abs(r.flux)>=p.startup_flux_fraction*p.exciter_flux_target,
             ac_bus_ready=math.sqrt(1.5)*abs(v)>0.5*p.motor_rated_voltage,
-            dc_link_ready=self.switchgear.k_main and e.dc_voltage>p.chopper_threshold*.8,
+            dc_link_ready=self.switchgear.k_main and e.dc_voltage>dc_target*.8,
             lowering=s.omega>1e-3,
             load_power=0,load_energy=0,source_energy=0,copper_energy=e.copper_energy,
             beyond_peak=False,effective_peak_torque=0,compensation_fraction=0,matching_capacitance=0)
@@ -962,7 +995,7 @@ class ExternalLoweringModel(MechanicalModel):
 
 def reviewed_parameters(**overrides):
     values=dict(initial_flux=0,gearbox_efficiency=.9,drivetrain_loss_torque=.1,
-                chopper_threshold=500,dc_brake_resistance=330,charger_min_dc_voltage=480,
+                dc_brake_resistance=330,charger_min_dc_voltage=480,
                 boost_target_voltage=600,brake_release_delay=.08,brake_application_delay=.05)
     values.update(overrides)
     return small_hoist(**values)

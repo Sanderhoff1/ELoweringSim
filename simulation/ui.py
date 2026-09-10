@@ -26,7 +26,9 @@ DYNAMIC_FIELDS = {'stator_resistance', 'rotor_resistance', 'stator_leakage',
                   'precharge_voltage', 'initial_shaft_rpm', 'ac_load_resistance',
                   'excitation_response'}
 DYNAMIC_FIELDS |= {'dc_capacitance','dc_initial_voltage','rectifier_resistance','dc_brake_resistance'}
-DYNAMIC_FIELDS |= {'chopper_threshold','chopper_band','chopper_response','chopper_max_duty',
+DYNAMIC_FIELDS |= {'chopper_reference_frequency','chopper_reference_voltage',
+                   'chopper_min_operating_voltage','chopper_max_operating_voltage',
+                   'chopper_band','chopper_response','chopper_max_duty','chopper_max_current',
                    'inverter_current_limit','inverter_output_resistance','inverter_idle_loss','inverter_min_dc_voltage'}
 DYNAMIC_FIELDS |= {'battery_voltage','boost_target_voltage','boost_input_power_limit','boost_efficiency',
                    'boost_output_current_limit','boost_response','boost_voltage_gain'}
@@ -243,7 +245,6 @@ class Application:
                         command=self.toggle_chopper).pack(anchor='w',pady=(10,0))
         self.live_converter_sliders={}
         for key,title,low,high,resolution in (
-            ('chopper_threshold','Chopper starts [V]',100,800,5),
             ('inverter_current_limit','Exciter limit [A RMS]',0.1,10,0.1),
             ('boost_target_voltage','Boost target [V]',100,750,5),
             ('boost_input_power_limit','Battery limit [W]',20,1000,10)):
@@ -273,16 +274,13 @@ class Application:
         self.main_start.pack(fill='x'); self.main_start.bind('<<ComboboxSelected>>',lambda e:self.apply_topology())
         self.main_cap=tk.Scale(controls,from_=0,to=3000,resolution=10,orient='horizontal',label='Capacitance [µF / branch]',command=lambda x:self.apply_main_value('capacitor_capacitance',x))
         self.main_cap.pack(fill='x')
-        self.main_chopper=tk.Scale(controls,from_=100,to=800,resolution=5,orient='horizontal',label='Chopper setpoint [V DC]',command=lambda x:self.apply_main_value('chopper_threshold',x))
-        self.main_chopper.pack(fill='x')
         self.main_frequency=tk.Scale(controls,from_=.1,to=100,resolution=.1,orient='horizontal',label='Exciter target frequency [Hz]',command=lambda x:self.apply_main_value('supply_frequency',x))
         self.main_frequency.pack(fill='x')
         self.automatic_profile=tk.BooleanVar(value=False)
-        ttk.Checkbutton(controls,text='Automatic 20 → 10 → 5 Hz sequence',
+        ttk.Checkbutton(controls,text='Automatic 20 → 15 → 10 → 7.5 → 5 Hz sequence',
                         variable=self.automatic_profile,
                         command=self.apply_automatic_profile).pack(anchor='w',pady=(10,0))
         self.main_cap.set(self.model.parameters.capacitor_capacitance)
-        self.main_chopper.set(self.model.parameters.chopper_threshold)
         self.main_frequency.set(self.model.parameters.supply_frequency)
         self.apply_topology()
         ttk.Label(controls, text='Pre-simulation duration [seconds]').pack(anchor='w', pady=(12, 2))
@@ -405,7 +403,7 @@ class Application:
 
     def change_power_stage(self):
         if (self.converter_mode.get().startswith('7') and self.boost_enabled.get()
-                and self.model.parameters.boost_target_voltage>self.model.parameters.chopper_threshold-20):
+                and self.model.parameters.boost_target_voltage>self.model.parameters.chopper_max_operating_voltage-20):
             self.converter_mode.set('7 · DC-fed exciter' if getattr(self.model,'dc_exciter',False)
                                     else '6 · Chopper + ideal exciter' if getattr(self.model,'chopper_active',False)
                                     else '5 · Direct resistance')
@@ -592,7 +590,6 @@ class Application:
         p = small_hoist(initial_shaft_rpm=0 if name=='24 V startup' else 1530,
                        initial_flux=0.005 if name=='Residual seed' else 0.0,
                        precharge_voltage=200 if name=='Precharged bank' else 0.0,
-                       chopper_threshold=500 if self.converter_mode.get().startswith('6') else 560,
                        dc_initial_voltage=600 if name=='Exciter handover' and self.converter_mode.get().startswith('7') else 0)
         for key, variable in self.inputs.items():
             variable.set(str(getattr(p, key)))
@@ -743,7 +740,7 @@ class Application:
                 self.message.set('Battery topology requires the machine and passive DC path connected.')
                 return False
         if (self.dynamic_mode.get() and self.converter_mode.get().startswith('7') and self.boost_enabled.get()
-                and p.boost_target_voltage>p.chopper_threshold-20):
+                and p.boost_target_voltage>p.chopper_max_operating_voltage-20):
             self.message.set('Keep the boost target at least 20 V below chopper start. Lower the boost target or raise chopper start first.')
             return False
         if (self.dynamic_mode.get() and self.converter_mode.get().startswith('7')
@@ -788,6 +785,8 @@ class Application:
                 p.sequence_normal_frequency,
                 p.sequence_slowdown_1_frequency,
                 p.sequence_slowdown_2_frequency,
+                p.sequence_slowdown_3_frequency,
+                p.sequence_slowdown_4_frequency,
             ] if self.automatic_profile.get() else [p.supply_frequency],
             'numerical_configuration': {
                 'physics_step_s': PHYSICS_DT,
@@ -1211,7 +1210,7 @@ class Application:
         c.create_line(408, row2, 408, row1+42,
                       fill='#4ee1bd' if r['capacitor_reactive_supply'] > 0 else '#687384', arrow='last', width=2)
         if dc_on:
-            label(22,system_y+190,f"DC bus: {r['dc_voltage']:.1f} V / {r['dc_energy']:.2f} J    Brake heat: {r['dc_brake_power']:.1f} W\nBridge input: {r['rectifier_power']:.1f} W    Duty: {100*r['chopper_duty']:.1f}% / command {100*r['chopper_command']:.1f}%")
+            label(22,system_y+190,f"DC bus: {r['dc_voltage']:.1f} V / target {r.get('chopper_target_voltage',0):.1f} V / {r['dc_energy']:.2f} J    Brake heat: {r['dc_brake_power']:.1f} W\nBridge input: {r['rectifier_power']:.1f} W    Duty: {100*r['chopper_duty']:.1f}% / command {100*r['chopper_command']:.1f}%")
             label(22,system_y+238,f"External supply: {r['external_supply_power']:.1f} W · core heat: {r['core_loss']:.1f} W · startup {r['startup_status']}" if r.get('external_exciter') else f"24 V: {r.get('battery_power',0):.1f} W / {r.get('battery_energy',0)/3600:.3f} Wh used · boost {r.get('boost_status','OFF')} · loss {r.get('boost_loss',0):.1f} W")
         history_y = system_y+285
         label(22, history_y, "HISTORY · last 75 simulated seconds · separate auto-scaled axes", size=11)

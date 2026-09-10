@@ -39,6 +39,30 @@ Default illustrative settings are 15 Hz/s acceleration, 3 Hz/s deceleration,
 flux target, and 1.30 Wb-turn maximum flux. All are editable `Parameters` fields
 and must be replaced with motor/converter data before design use.
 
+## Frequency-derived DC-link target
+
+The former fixed 500 V chopper target prevented useful resistor loading when
+low-frequency generated voltage could not charge the DC link that high. The
+candidate control strategy now schedules the normal chopper target as
+
+```text
+Vdc_target = clamp(Vdc_reference * f_schedule / f_reference,
+                   Vdc_min_operating, Vdc_max_operating)
+```
+
+The illustrative values are `f_reference = 20 Hz`, `Vdc_reference = 400 V`,
+`Vdc_min_operating = 80 V`, and `Vdc_max_operating = 500 V`. In exciter mode
+`f_schedule` is the ramped excitation-frequency command. In capacitor-only mode
+it is actual estimated electrical frequency; no frequency command is invented.
+The voltage error requests chopper duty through the existing 40 V proportional
+band and 20 ms duty response, subject to configured duty and averaged resistor-
+current limits.
+
+This is a control target, not a rectifier condition or voltage clamp. Diode
+conduction, capacitor energy, and resistor loading still determine `Vdc`.
+`main_dc_max_voltage` remains an independent hard protection limit and is not
+scheduled downward with frequency.
+
 ## Automatic sequence
 
 The exciter sequence is:
@@ -50,8 +74,10 @@ OFF
  -> READY_TO_RELEASE      flux/current dwell passed; brake still applied
  -> BRAKE_RELEASE         release command; wait for physical feedback
  -> LOWERING              ramp/hold at 20 Hz
- -> SLOWDOWN_1            ramp/hold at 10 Hz
- -> SLOWDOWN_2            ramp/hold at 5 Hz
+ -> SLOWDOWN_1            ramp/hold at 15 Hz
+ -> SLOWDOWN_2            ramp/hold at 10 Hz
+ -> SLOWDOWN_3            ramp/hold at 7.5 Hz
+ -> SLOWDOWN_4            ramp/hold at 5 Hz
  -> BRAKE_APPLY           command brake while 5 Hz excitation remains
  -> STOPPED               physical brake applied and speed low; remove excitation
 ```
@@ -60,7 +86,7 @@ Emergency stop, auxiliary/main DC overvoltage, gross overflux, sustained machine
 overcurrent, or a persistent runaway diagnostic transitions to `FAULT` and commands the brake applied. Brake
 command and brake physical state remain separate telemetry.
 
-The Explore tab checkbox **Automatic 20 -> 10 -> 5 Hz sequence** selects this
+The Explore tab checkbox **Automatic 20 -> 15 -> 10 -> 7.5 -> 5 Hz sequence** selects this
 profile. It is honored by live simulation and by pre-simulation/replay. The
 same deterministic profile is available without UI interaction through:
 
@@ -85,9 +111,10 @@ frequency or voltage.
 
 ## Capacitor-only boundary
 
-Capacitor-only mode shares the plant, switchgear, brake sequencing, telemetry,
+Capacitor-only mode shares the plant, scheduled chopper, switchgear, brake sequencing, telemetry,
 and fault handling. It does **not** run scalar V/f and receives no 20/10/5 Hz
-command. Its bus voltage and frequency emerge from rotor speed, residual or
+command. Its chopper schedule uses measured/estimated bus frequency. Bus voltage
+and frequency emerge from rotor speed, residual or
 precharged initial energy, machine parameters, capacitance, saturation, losses,
 rectifier/DC loading, and the mechanical trajectory. The canonical report
 therefore gives its natural operating point and labels the frequency command
@@ -109,20 +136,22 @@ fault/runaway state, and the energy residual.
 A frequency command is not evidence that the islanded generating bus reached
 that frequency. The report classifies a point as `frequency-control-limited`
 when actual bus frequency differs by more than 0.5 Hz or 5% from the command.
-With the present parameters, independent nonlinear machine/load calculations
-find target-flux torque equilibria at 20, 15, 10, 7.5, and 5 Hz. They are not
-stable equilibria of the complete present plant: their rectified voltages are
-below the 500 V chopper threshold, so the DC capacitor cannot sustain continuous
-resistor loading. As it charges, generating torque collapses and rotor speed and
-bus frequency move away from the command. Lower-frequency theoretical points
-also require larger negative slip and lose a greater fraction of mechanical
-input in rotor/stator copper.
+The scheduled-target run confirms that the old 500 V threshold was blocking the
+power path: below 500 V the bridge now exports real power continuously and the
+resistor absorbs it instead of forcing the same power into machine copper or DC
+storage. It does not, however, make the commanded low-frequency points stable.
+From the 15 Hz command downward, duty is already 100%; lowering the target cannot
+increase braking power through the configured 330 ohm resistor. The load remains
+near a higher machine/load/resistor equilibrium, so rotor motion sets actual bus
+frequency. At every reported point the reverse-blocking small exciter is also at
+its physical limit: it supplies reactive excitation but cannot absorb generator
+real power to force the commanded rotating field. The scalar source and saturated
+resistor path therefore do not provide enough transient braking authority to pull
+the speed down.
 
-Accordingly, this audit fixes a controller-caused overflux mechanism but does
-not claim that scalar V/f alone makes 20→10→5 Hz physically viable. Resolving
-the remaining limitation would require greater electrical frequency/torque
-authority or DC-side energy absorption; neither topology nor control family is
-redesigned here.
+This validates one model-level candidate strategy, not the real hardware design.
+It fixes the former DC-transfer mechanism while exposing separate exciter and
+full-duty/resistor speed-control-authority limits. Motor parameters were not changed.
 
 This remains a simulation model, not deployable safety firmware. The parameters
 are placeholders, the chopper and converters are averaged, and the runaway

@@ -2,8 +2,19 @@
 import math
 
 
-def chopper(p, voltage, duty, enabled):
-    command = min(p.chopper_max_duty,max(0.0,(voltage-p.chopper_threshold)/p.chopper_band)) if enabled else 0.0
+def chopper_target(p, frequency):
+    """Scheduled normal DC-link target; this never clamps the physical link."""
+    raw=p.chopper_reference_voltage*max(0.0,frequency)/p.chopper_reference_frequency
+    return min(p.chopper_max_operating_voltage,
+               max(p.chopper_min_operating_voltage,raw))
+
+
+def chopper(p, voltage, duty, enabled, frequency):
+    target=chopper_target(p,frequency)
+    voltage_command=max(0.0,(voltage-target)/p.chopper_band)
+    current_limited_duty=(p.chopper_max_current*p.dc_brake_resistance/voltage
+                          if voltage>0 else 0.0)
+    command = min(p.chopper_max_duty,current_limited_duty,voltage_command) if enabled else 0.0
     return command, (command-duty)/p.chopper_response
 
 

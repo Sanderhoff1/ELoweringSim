@@ -152,7 +152,7 @@ acceleration and steady lowering. Run `python -m simulation.architecture_demo`
 for the full sequence, sizing peaks, CSV and SVG plot. Run
 `python -m simulation.preview_energy` for previews rendered from the actual Tk
 canvas geometry at the normal application size with its sidebar present.
-The reviewed 20 -> 10 -> 5 Hz sequence and passive-capacitance sweep are
+The reviewed 20 -> 15 -> 10 -> 7.5 -> 5 Hz sequence and passive-capacitance sweep are
 regenerated with `python -m simulation.automatic_sequence` and
 `python -m simulation.capacitor_sweep`; see [scalar-vf-control.md](scalar-vf-control.md).
 

@@ -67,7 +67,7 @@ class PhysicalControlTests(unittest.TestCase):
         self.assertTrue(m.switchgear.k_main)
 
     def test_chopper_uses_actual_dc_voltage_while_main_contactor_is_open(self):
-        m=ExternalLoweringModel(reviewed_parameters(dc_initial_voltage=550,chopper_threshold=500))
+        m=ExternalLoweringModel(reviewed_parameters(dc_initial_voltage=550))
         m.inverter_enabled=False
         m.controls.main_bypass_command=False
         before=m.electrical.dc_energy

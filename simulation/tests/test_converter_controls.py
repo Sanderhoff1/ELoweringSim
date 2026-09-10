@@ -3,7 +3,7 @@ import math
 import random
 import unittest
 
-from simulation.converter_controls import exciter,chopper
+from simulation.converter_controls import exciter,chopper,chopper_target
 from simulation.dynamic_model import DynamicLoweringModel
 from simulation.examples import small_hoist
 from simulation.rectifier import bridge
@@ -19,16 +19,32 @@ class ConverterTests(unittest.TestCase):
         m.reset()
         return m
 
-    def test_chopper_threshold_response_and_saturation(self):
+    def test_frequency_scheduled_chopper_response_and_saturation(self):
         p=small_hoist()
-        self.assertEqual(chopper(p,500,0,True),(0,0))
-        command,rate=chopper(p,580,0,True)
+        self.assertEqual(chopper(p,400,0,True,20),(0,0))
+        command,rate=chopper(p,420,0,True,20)
         self.assertEqual(command,0.5)
         self.assertEqual(rate,0.5/p.chopper_response)
-        self.assertEqual(chopper(p,1000,0,True)[0],1)
-        self.assertLess(chopper(p,600,0.5,False)[1],0)
+        self.assertEqual(chopper(p,500,0,True,20)[0],1)
+        self.assertLess(chopper(p,600,0.5,False,20)[1],0)
         r=bridge(p,400,580,True,0.25)
         self.assertAlmostEqual(r['brake_power'],0.25*580**2/p.dc_brake_resistance)
+
+    def test_chopper_target_reference_scaling_and_bounds(self):
+        p=small_hoist(chopper_reference_frequency=20,
+                      chopper_reference_voltage=400,
+                      chopper_min_operating_voltage=80,
+                      chopper_max_operating_voltage=450)
+        self.assertEqual(chopper_target(p,20),400)
+        self.assertEqual(chopper_target(p,10),200)
+        self.assertEqual(chopper_target(p,5),100)
+        self.assertEqual(chopper_target(p,0),80)
+        self.assertEqual(chopper_target(p,100),450)
+
+    def test_chopper_current_limit_is_respected(self):
+        p=small_hoist(chopper_max_current=.25,dc_brake_resistance=100)
+        command,_=chopper(p,500,0,True,5)
+        self.assertLessEqual(command*500/p.dc_brake_resistance,.25+1e-12)
 
     def test_inverter_simultaneous_limits_and_power(self):
         p=small_hoist()
@@ -66,7 +82,7 @@ class ConverterTests(unittest.TestCase):
         self.assertAlmostEqual(r['dc_power'],-300+r['loss'])
 
     def test_phase_six_controls_resistor_with_ideal_external_exciter(self):
-        m=self.model(dc_initial_voltage=0,chopper_threshold=500)
+        m=self.model(dc_initial_voltage=0)
         m.dc_exciter=False
         for _ in range(150):
             m.step()
@@ -87,7 +103,7 @@ class ConverterTests(unittest.TestCase):
         self.assertGreater(r['inverter_loss_energy'],0)
         self.assertEqual(r['source_energy'],0)
         saved=(m.state.time,m.electrical.dc_voltage,m.electrical.chopper_duty)
-        m.parameters=replace(m.parameters,inverter_current_limit=0.3,chopper_threshold=500)
+        m.parameters=replace(m.parameters,inverter_current_limit=0.3)
         self.assertEqual(saved,(m.state.time,m.electrical.dc_voltage,m.electrical.chopper_duty))
         self.assertLessEqual(m.readings()['inverter_current'],0.3+1e-9)
         for _ in range(50):

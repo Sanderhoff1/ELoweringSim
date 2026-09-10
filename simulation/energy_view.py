@@ -386,7 +386,7 @@ class EnergyView:
             cap_reference = max(1, .5*model.kernel.cac*400**2)
             self._set_level('capacitor_level', r['capacitor_energy']/cap_reference,
                             f"{r['capacitor_energy']:.2f} J", update_text)
-        self._set_level('dc_level', r['dc_voltage']/max(p.chopper_threshold, 1),
+        self._set_level('dc_level', r['dc_voltage']/max(r.get('chopper_target_voltage',p.chopper_reference_voltage), 1),
                         f"{r['dc_voltage']:.0f} V", update_text)
         self._set_level('chopper_level', r['chopper_duty'], 'PWM', update_text)
 

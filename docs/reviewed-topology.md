@@ -149,8 +149,9 @@ prediction has been added.
 The reviewed example keeps the earlier estimated 0.9 kW, four-pole motor,
 300 kg load, 200 m height, 0.1 m drum / 60:1 ratio, and 6 microfarad delta
 capacitors. All component values remain estimates, not an identified motor.
-The chopper threshold is 500 V with a 40 V proportional band and 20 ms duty
-response; the resistor is 330 ohm. These estimates keep the normal bus within
+The chopper target is scheduled from 400 V at 20 Hz, bounded to 80–500 V, with
+a 40 V proportional band and 20 ms duty response; the resistor is 330 ohm.
+The independent main-link overvoltage protection remains 650 V. These estimates keep the normal bus within
 the external exciter's voltage envelope. No closed-loop load-speed regulator
 or resistor thermal model is implied by DC-voltage control.
 

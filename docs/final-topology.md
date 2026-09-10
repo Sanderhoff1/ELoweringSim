@@ -75,10 +75,12 @@ never forced. `ControlInputs.speed_request_hz` is the future potentiometer/
 operator frequency request; it defaults to the parameter value.
 
 The optional canonical profile continues through `LOWERING` (20 Hz),
-`SLOWDOWN_1` (10 Hz), `SLOWDOWN_2` (5 Hz), and `BRAKE_APPLY`. Frequency changes
+`SLOWDOWN_1` (15 Hz), `SLOWDOWN_2` (10 Hz), `SLOWDOWN_3` (7.5 Hz),
+`SLOWDOWN_4` (5 Hz), and `BRAKE_APPLY`. Frequency changes
 use configured ramps. Excitation remains connected until physical brake feedback
 and low speed qualify `STOPPED`. Capacitor-only mode shares these brake/fault
-states but receives no frequency or voltage command.
+states but receives no frequency or voltage command. Its common chopper target
+uses estimated actual electrical frequency instead.
 
 In capacitor-only residual startup, `K_CAP` is closed, `K_EXC` is open and the
 brake is commanded to release immediately. Rotation is therefore available to

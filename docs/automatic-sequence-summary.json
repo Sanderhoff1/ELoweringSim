@@ -2,7 +2,7 @@
   "exciter": {
     "final_state": "STOPPED",
     "fault": "",
-    "energy_residual": 0.00010723900550146936
+    "energy_residual": 0.00017948109632470732
   },
   "capacitor": {
     "final_state": "FAULT",

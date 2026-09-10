@@ -2,15 +2,25 @@
 
 | Target | Status | Actual f [Hz] | Speed [m/min] | Rotor [rpm] | Sync [rpm] | Slip | V LL [V] | I line [A] | I active [A] | I reactive [A] | Flux target / actual / max [Wb] | Torque [N m] |
 |---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| 20 Hz | frequency-control-limited | 45.86 | 14.857 | 1418.78 | 1375.69 | -0.0313 | 381.36 | 1.781 | -0.727 | 1.626 | 0.950 / 1.053 / 1.300 | -4.060 |
-| 10 Hz | frequency-control-limited | 54.10 | 17.600 | 1680.72 | 1623.03 | -0.0355 | 392.96 | 1.674 | -0.910 | 1.405 | 0.950 / 0.926 / 1.300 | -4.232 |
-| 5 Hz | frequency-control-limited | 54.86 | 17.870 | 1706.44 | 1645.73 | -0.0369 | 394.54 | 1.699 | -0.955 | 1.405 | 0.950 / 0.917 / 1.300 | -4.381 |
+| 20 Hz | frequency-control-limited | 38.75 | 12.633 | 1206.40 | 1162.42 | -0.0378 | 318.69 | 1.784 | -0.737 | 1.625 | 0.950 / 1.047 / 1.300 | -4.110 |
+| 15 Hz | frequency-control-limited | 35.93 | 11.857 | 1132.26 | 1077.94 | -0.0504 | 265.05 | 1.695 | -0.858 | 1.461 | 0.950 / 0.951 / 1.300 | -4.194 |
+| 10 Hz | frequency-control-limited | 39.01 | 12.863 | 1228.32 | 1170.39 | -0.0495 | 280.16 | 1.686 | -0.906 | 1.422 | 0.950 / 0.926 / 1.300 | -4.247 |
+| 7.5 Hz | frequency-control-limited | 39.70 | 13.087 | 1249.69 | 1191.02 | -0.0493 | 284.27 | 1.690 | -0.918 | 1.420 | 0.950 / 0.923 / 1.300 | -4.280 |
+| 5 Hz | frequency-control-limited | 40.57 | 13.373 | 1277.02 | 1217.25 | -0.0491 | 289.65 | 1.698 | -0.933 | 1.419 | 0.950 / 0.920 / 1.300 | -4.327 |
 
-| Target | Mechanical in [W] | Copper [W] | Core [W] | Magnetic storage [W] | AC export [W] | Q demand [var] | Rectifier AC [W] | DC in [W] | Vdc [V] | DC capacitor [W] | Resistor [W] |
-|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| 20 Hz | 603.26 | 86.60 | 36.36 | -0.18 | 480.48 | 1074.10 | 480.48 | 463.42 | 515.58 | 0.59 | 312.83 |
-| 10 Hz | 744.80 | 86.73 | 38.60 | 0.07 | 619.40 | 956.11 | 619.40 | 594.33 | 527.87 | -0.64 | 589.44 |
-| 5 Hz | 782.80 | 91.01 | 38.92 | 0.17 | 652.71 | 960.46 | 652.71 | 625.48 | 529.16 | -1.86 | 621.82 |
+| Target | Mechanical in [W] | Copper [W] | Core [W] | Magnetic storage [W] | AC export [W] | Q demand [var] | Rectifier AC [W] | DC in [W] | Vdc / target [V] | DC capacitor [W] | Resistor [W] | Duty |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 20 Hz | 519.18 | 87.17 | 25.39 | -0.18 | 406.79 | 896.77 | 406.79 | 390.34 | 428.13 / 400.00 | 0.48 | 389.86 | 70.2% |
+| 15 Hz | 497.23 | 85.58 | 17.56 | -0.00 | 394.09 | 670.87 | 394.09 | 374.07 | 351.31 / 300.00 | 0.07 | 374.00 | 100.0% |
+| 10 Hz | 546.33 | 87.09 | 19.62 | 0.08 | 439.54 | 689.90 | 439.54 | 417.23 | 371.37 / 200.00 | -0.69 | 417.92 | 100.0% |
+| 7.5 Hz | 560.09 | 88.02 | 20.20 | 0.10 | 451.77 | 698.99 | 451.77 | 428.86 | 376.84 / 150.00 | -1.47 | 430.34 | 100.0% |
+| 5 Hz | 578.69 | 89.41 | 20.97 | 0.16 | 468.15 | 711.75 | 468.15 | 444.45 | 384.00 / 100.00 | -2.39 | 446.84 | 100.0% |
+
+Instantaneous real-power checks at the reported points:
+
+- Maximum machine-path mismatch: 0.000000 W.
+- Maximum rectifier-path mismatch: 0.000000 W.
+- Maximum DC-link-path mismatch: 0.000000 W. Reactive power is excluded.
 
 ## Controller audit
 
@@ -19,9 +29,9 @@
 - Normal target-flux PI regulation is separate from current/overflux/modulation protection. Protection derating starts only near the configured maximum and cannot redefine the displayed target.
 - The trace logs base voltage, signed resistance compensation, PI correction, unlimited/final voltage, flux error/integral, every limiter, actual bus frequency, active/reactive power, DC-link behavior, contactors, brake state, and faults at 10 ms intervals.
 
-Observed maxima: 1.152 Wb-turn flux and 2.164 A RMS current.
+Observed maxima: 1.134 Wb-turn flux and 2.167 A RMS current.
 
-Conclusion: flux regulation no longer causes the slowdown failure, but the retained scalar source does not establish the requested low electrical frequency in this generating/passive-DC plant. The command reaches its scheduled values while actual bus frequency remains set mainly by rotor motion. Independently initialized machine equilibria exist, but below the present DC-link/chopper operating point the rectifier cannot sustain the required braking load; the capacitor charges, braking torque collapses, and the plant moves away. This is a controller-authority/DC-energy-absorption limit of the present architecture, not proof that a commanded point is stable.
+Conclusion: the frequency-derived target removes the previous 500 V power-path blockage: the bridge continues exporting real power and the resistor absorbs it below 500 V. It does not establish the requested low electrical frequencies. The load remains near the higher machine/load/resistor equilibrium and actual frequency is set mainly by rotor motion, not by the scalar command. The reverse-blocking small exciter is at its physical limit: it supplies reactive excitation but cannot absorb generator real power to force the commanded rotating field. From 15 Hz downward the chopper is also at full duty, so lowering its voltage target cannot increase braking torque; the configured resistor and available generator voltage set the maximum absorption. The failure is therefore exciter plus duty/resistor braking-authority saturation, not capacitor charging or forced machine copper loss.
 
 - Final state: `STOPPED`; fault: `NONE`
-- Final energy residual: +0.00010724 J
+- Final energy residual: +0.00017948 J

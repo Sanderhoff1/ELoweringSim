@@ -22,9 +22,16 @@ commands brake release and ramps electrical frequency. Throughout startup the
 passive bridge can charge the main link through `K_PRECHARGE` and the real series
 resistor whenever diode voltage permits. The controller later closes `K_MAIN`,
 and the independently connected chopper regulates energy through the resistor.
-Select **Automatic 20 -> 10 -> 5 Hz sequence** to run the canonical lowering,
-two-step slowdown, brake-apply, and stop profile. The exact speed is not a
+Select **Automatic 20 -> 15 -> 10 -> 7.5 -> 5 Hz sequence** to run the canonical
+lowering, four-step slowdown, brake-apply, and stop profile. The exact speed is not a
 hardware prediction.
+
+The brake-chopper control target is derived automatically from excitation
+frequency (or measured electrical frequency in capacitor-only mode):
+`Vdc_target = clamp(Vdc_ref f/f_ref, Vdc_min, Vdc_max)`. The default model-level
+test uses 400 V at 20 Hz, bounded to 80–500 V. This target changes duty only;
+the bridge and capacitor determine physical DC-link voltage, and the independent
+650 V main-link overvoltage trip is unchanged.
 
 **Capacitor only** disconnects `K_EXC`. Residual startup releases the brake first
 because a stationary induction machine cannot build voltage from residual flux.

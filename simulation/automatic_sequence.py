@@ -19,17 +19,23 @@ FIELDS = (
     'excitation_scale', 'motor_torque', 'motor_shaft_power',
     'machine_copper_loss', 'machine_core_loss', 'magnetic_storage_power',
     'electrical_export', 'machine_reactive_demand', 'rectifier_current',
-    'rectifier_power', 'dc_input_power', 'dc_voltage', 'dc_capacitor_current',
-    'dc_capacitor_power', 'chopper_duty', 'dc_brake_power', 'brake_command',
+    'rectifier_power', 'rectifier_loss', 'dc_precharge_power', 'dc_input_power',
+    'dc_voltage', 'dc_capacitor_current',
+    'dc_capacitor_power', 'chopper_target_voltage', 'chopper_target_frequency',
+    'chopper_duty', 'chopper_command', 'chopper_current', 'chopper_current_limited',
+    'dc_brake_power', 'brake_command',
     'brake_physical_state', 'brake_capacity', 'k_exc', 'k_precharge', 'k_main',
     'aux_voltage', 'aux_power', 'boost_power', 'battery_voltage',
-    'battery_current', 'battery_power', 'inverter_real_power','inverter_reactive_supply',
+    'battery_current', 'battery_power', 'charger_input_power',
+    'inverter_current', 'inverter_real_power','inverter_reactive_supply',
+    'inverter_status', 'exciter_solver_status', 'exciter_solver_residual',
     'vf_current_limited', 'vf_flux_limited','vf_voltage_limited',
-    'power_transfer_limited', 'runaway', 'fault', 'energy_residual')
+    'power_transfer_limited', 'main_dc_overvoltage_limit', 'main_dc_overvoltage',
+    'runaway', 'fault', 'energy_residual')
 
 
 def run(mode='exciter', seconds=None, sample_steps=5, changes=None):
-    seconds = 11.0 if mode == 'exciter' and seconds is None else 8.0 if seconds is None else seconds
+    seconds = 14.0 if mode == 'exciter' and seconds is None else 8.0 if seconds is None else seconds
     parameter_changes = {} if mode == 'exciter' else {'initial_flux': .005}
     parameter_changes.update(changes or {})
     model = ExternalLoweringModel(reviewed_parameters(**parameter_changes))
@@ -88,7 +94,8 @@ def svg(rows, path):
         ('Machine copper loss [W]', (('copper', 'machine_copper_loss', 1),)),
         ('AC power [W / var]', (('P export', 'electrical_export', 1),
                                 ('Q demand', 'machine_reactive_demand', 1))),
-        ('DC link [V]', (('Vdc', 'dc_voltage', 1),)),
+        ('DC link [V]', (('Vdc', 'dc_voltage', 1),
+                         ('scheduled target', 'chopper_target_voltage', 1))),
         ('Brake resistor [W]', (('resistor', 'dc_brake_power', 1),)),
         ('Brake command / state', (('release command', '_brake_command', 1),
                                    ('released state', '_brake_state', 1))),
@@ -127,7 +134,8 @@ def svg(rows, path):
 
 
 def report(mode, model, rows):
-    state_for_frequency = {20: 'LOWERING', 10: 'SLOWDOWN_1', 5: 'SLOWDOWN_2'}
+    state_for_frequency = {20: 'LOWERING', 15: 'SLOWDOWN_1', 10: 'SLOWDOWN_2',
+                           7.5: 'SLOWDOWN_3', 5: 'SLOWDOWN_4'}
     final = rows[-1]
     lines = [f'# Canonical {mode} lowering review', '']
     if mode == 'exciter':
@@ -142,13 +150,28 @@ def report(mode, model, rows):
                 continue
             lines.append(f'| {frequency} Hz | {classification(row, model.parameters)} | {row["bus_frequency"]:.2f} | {60*row["velocity"]:.3f} | {row["rpm"]:.2f} | {row["synchronous_rpm"]:.2f} | {row["slip"]:.4f} | {row["line_voltage"]:.2f} | {row["machine_line_current"]:.3f} | {row["machine_active_current"]:.3f} | {row["machine_reactive_current"]:.3f} | {row["flux_target"]:.3f} / {row["flux_magnitude"]:.3f} / {row["maximum_flux"]:.3f} | {row["motor_torque"]:.3f} |')
         lines.extend(['',
-            '| Target | Mechanical in [W] | Copper [W] | Core [W] | Magnetic storage [W] | AC export [W] | Q demand [var] | Rectifier AC [W] | DC in [W] | Vdc [V] | DC capacitor [W] | Resistor [W] |',
-            '|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|'])
+            '| Target | Mechanical in [W] | Copper [W] | Core [W] | Magnetic storage [W] | AC export [W] | Q demand [var] | Rectifier AC [W] | DC in [W] | Vdc / target [V] | DC capacitor [W] | Resistor [W] | Duty |',
+            '|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|'])
         for frequency, row in points:
             if row is None:
-                lines.append(f'| {frequency} Hz | - | - | - | - | - | - | - | - | - | - | - |')
+                lines.append(f'| {frequency} Hz | - | - | - | - | - | - | - | - | - | - | - | - |')
                 continue
-            lines.append(f'| {frequency} Hz | {-row["motor_shaft_power"]:.2f} | {row["machine_copper_loss"]:.2f} | {row["machine_core_loss"]:.2f} | {row["magnetic_storage_power"]:.2f} | {row["electrical_export"]:.2f} | {row["machine_reactive_demand"]:.2f} | {row["rectifier_power"]:.2f} | {row["dc_input_power"]:.2f} | {row["dc_voltage"]:.2f} | {row["dc_capacitor_power"]:.2f} | {row["dc_brake_power"]:.2f} |')
+            lines.append(f'| {frequency} Hz | {-row["motor_shaft_power"]:.2f} | {row["machine_copper_loss"]:.2f} | {row["machine_core_loss"]:.2f} | {row["magnetic_storage_power"]:.2f} | {row["electrical_export"]:.2f} | {row["machine_reactive_demand"]:.2f} | {row["rectifier_power"]:.2f} | {row["dc_input_power"]:.2f} | {row["dc_voltage"]:.2f} / {row["chopper_target_voltage"]:.2f} | {row["dc_capacitor_power"]:.2f} | {row["dc_brake_power"]:.2f} | {100*row["chopper_duty"]:.1f}% |')
+        reached_points=[row for _,row in points if row is not None]
+        if reached_points:
+            machine_balance=max(abs(-row['motor_shaft_power']-row['machine_copper_loss']
+                                    -row['machine_core_loss']-row['magnetic_storage_power']
+                                    -row['electrical_export']) for row in reached_points)
+            rectifier_balance=max(abs(row['rectifier_power']-row['dc_input_power']
+                                      -row['rectifier_loss']-row['dc_precharge_power'])
+                                  for row in reached_points)
+            dc_balance=max(abs(row['dc_input_power']-row['dc_capacitor_power']
+                               -row['dc_brake_power']-row['charger_input_power'])
+                           for row in reached_points)
+            lines.extend(['', 'Instantaneous real-power checks at the reported points:', '',
+                          f'- Maximum machine-path mismatch: {machine_balance:.6f} W.',
+                          f'- Maximum rectifier-path mismatch: {rectifier_balance:.6f} W.',
+                          f'- Maximum DC-link-path mismatch: {dc_balance:.6f} W. Reactive power is excluded.'])
     else:
         row = operating_point(rows, 'LOWERING') or rows[-1]
         trajectory_status=('unstable/runaway' if rows[-1]['fault'] or rows[-1]['runaway']
@@ -176,8 +199,13 @@ def report(mode, model, rows):
                       f'Observed maxima: {max_flux:.3f} Wb-turn flux and {max_current:.3f} A RMS current.'])
         if reached and any(classification(row,model.parameters)=='frequency-control-limited'
                            for row in reached):
+            full_duty=any(row['chopper_duty']>=.999 for row in reached)
+            exciter_limited=any(row['inverter_status']=='SMALL EXCITER LIMIT'
+                                for row in reached)
             lines.extend(['',
-                'Conclusion: flux regulation no longer causes the slowdown failure, but the retained scalar source does not establish the requested low electrical frequency in this generating/passive-DC plant. The command reaches its scheduled values while actual bus frequency remains set mainly by rotor motion. Independently initialized machine equilibria exist, but below the present DC-link/chopper operating point the rectifier cannot sustain the required braking load; the capacitor charges, braking torque collapses, and the plant moves away. This is a controller-authority/DC-energy-absorption limit of the present architecture, not proof that a commanded point is stable.'])
+                'Conclusion: the frequency-derived target removes the previous 500 V power-path blockage: the bridge continues exporting real power and the resistor absorbs it below 500 V. It does not establish the requested low electrical frequencies. The load remains near the higher machine/load/resistor equilibrium and actual frequency is set mainly by rotor motion, not by the scalar command.'
+                + (' The reverse-blocking small exciter is at its physical limit: it supplies reactive excitation but cannot absorb generator real power to force the commanded rotating field.' if exciter_limited else '')
+                + (' From 15 Hz downward the chopper is also at full duty, so lowering its voltage target cannot increase braking torque; the configured resistor and available generator voltage set the maximum absorption. The failure is therefore exciter plus duty/resistor braking-authority saturation, not capacitor charging or forced machine copper loss.' if full_duty else '')])
         elif final['fault']:
             lines.extend(['',f'Conclusion: the sequence ended on `{final["fault"]}`; no unreached target is reported as a success.'])
         else:

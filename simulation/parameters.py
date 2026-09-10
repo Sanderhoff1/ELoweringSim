@@ -43,10 +43,14 @@ class Parameters:
     dc_initial_voltage: float = parameter(0.0, "V", "Initial DC-link voltage at reset", "estimated", maximum=1500)
     rectifier_resistance: float = parameter(10.0, "ohm", "Effective averaged bridge/source resistance; limits charging current", "estimated", minimum=1, maximum=1000)
     dc_brake_resistance: float = parameter(390.0, "ohm", "DC equivalent brake resistance; smaller draws more current at a given voltage", "estimated", minimum=10, maximum=100000)
-    chopper_threshold: float = parameter(560.0, "V DC", "Chopper starts requesting duty above this DC voltage", "estimated", minimum=10, maximum=1500)
-    chopper_band: float = parameter(40.0, "V", "Voltage rise above threshold for a full-duty request", "estimated", minimum=1, maximum=500)
+    chopper_reference_frequency: float = parameter(20.0, "Hz", "Frequency at which the scheduled chopper target equals its reference voltage", "estimated", minimum=0.1, maximum=100)
+    chopper_reference_voltage: float = parameter(400.0, "V DC", "Normal DC-link control target at the chopper reference frequency", "estimated", minimum=10, maximum=1500)
+    chopper_min_operating_voltage: float = parameter(80.0, "V DC", "Minimum scheduled normal chopper target", "estimated", minimum=0, maximum=1500)
+    chopper_max_operating_voltage: float = parameter(500.0, "V DC", "Maximum scheduled normal chopper target", "estimated", minimum=10, maximum=1500)
+    chopper_band: float = parameter(40.0, "V", "Voltage rise above the scheduled target for a full-duty request", "estimated", minimum=1, maximum=500)
     chopper_response: float = parameter(0.02, "s", "Averaged chopper duty response time constant", "estimated", minimum=0.001, maximum=1)
     chopper_max_duty: float = parameter(1.0, "fraction", "Maximum allowed resistor duty", "estimated", maximum=1)
+    chopper_max_current: float = parameter(2.0, "A DC", "Maximum averaged brake-chopper/resistor current", "estimated", minimum=0.01, maximum=1000)
     inverter_current_limit: float = parameter(3.0, "A RMS", "Phase current limit of the active exciter", "estimated", minimum=0.1, maximum=100)
     inverter_reactive_current_limit: float = parameter(3.0, "A RMS", "Reactive phase-current component limit of the active exciter", "estimated", minimum=0.1, maximum=100)
     inverter_output_resistance: float = parameter(5.0, "ohm/phase", "Virtual output impedance used by the averaged current controller; not heat", "estimated", minimum=0.01, maximum=100)
@@ -94,12 +98,16 @@ class Parameters:
     vf_flux_ki: float = parameter(200.0, "V/(Wb turn s)", "Scalar V/f flux-loop integral gain", "estimated", minimum=0, maximum=100000)
     vf_flux_correction_limit: float = parameter(150.0, "V LL RMS", "Maximum magnitude of normal scalar flux-loop voltage correction", "estimated", minimum=0, maximum=1500)
     sequence_normal_frequency: float = parameter(20.0, "Hz", "Canonical lowering frequency target", "estimated", minimum=0.1, maximum=100)
-    sequence_slowdown_1_frequency: float = parameter(10.0, "Hz", "First canonical slowdown target", "estimated", minimum=0.1, maximum=100)
-    sequence_slowdown_2_frequency: float = parameter(5.0, "Hz", "Final canonical controlled frequency", "estimated", minimum=0.1, maximum=100)
+    sequence_slowdown_1_frequency: float = parameter(15.0, "Hz", "First canonical slowdown target", "estimated", minimum=0.1, maximum=100)
+    sequence_slowdown_2_frequency: float = parameter(10.0, "Hz", "Second canonical slowdown target", "estimated", minimum=0.1, maximum=100)
+    sequence_slowdown_3_frequency: float = parameter(7.5, "Hz", "Third canonical slowdown target", "estimated", minimum=0.1, maximum=100)
+    sequence_slowdown_4_frequency: float = parameter(5.0, "Hz", "Final canonical controlled frequency", "estimated", minimum=0.1, maximum=100)
     sequence_ready_time: float = parameter(0.05, "s", "Electrical-ready dwell before brake release", "estimated", minimum=0, maximum=10)
     sequence_normal_hold: float = parameter(0.6, "s", "Canonical hold after reaching normal frequency", "estimated", minimum=0, maximum=60)
     sequence_slowdown_1_hold: float = parameter(0.5, "s", "Canonical hold after reaching first slowdown target", "estimated", minimum=0, maximum=60)
-    sequence_slowdown_2_hold: float = parameter(0.4, "s", "Canonical hold at minimum controlled frequency", "estimated", minimum=0, maximum=60)
+    sequence_slowdown_2_hold: float = parameter(0.4, "s", "Canonical hold at the second slowdown target", "estimated", minimum=0, maximum=60)
+    sequence_slowdown_3_hold: float = parameter(0.4, "s", "Canonical hold at the third slowdown target", "estimated", minimum=0, maximum=60)
+    sequence_slowdown_4_hold: float = parameter(0.4, "s", "Canonical hold at the final controlled frequency", "estimated", minimum=0, maximum=60)
     sequence_capacitor_hold: float = parameter(3.0, "s", "Canonical capacitor-only natural-lowering observation time", "estimated", minimum=0.01, maximum=120)
     sequence_stop_speed: float = parameter(0.005, "m/s", "Speed below which a physically applied brake qualifies STOPPED", "estimated", minimum=0, maximum=10)
     runaway_speed_limit: float = parameter(0.8, "m/s", "Simulation diagnostic lowering-speed limit", "estimated", minimum=0.01, maximum=100)
@@ -124,6 +132,9 @@ class Parameters:
             raise ValueError("exciter_flux_target must not exceed maximum_magnetic_flux")
         if self.boost_target_voltage > self.auxiliary_max_voltage:
             raise ValueError("boost_target_voltage must not exceed auxiliary_max_voltage")
-        if not (self.sequence_slowdown_2_frequency <= self.sequence_slowdown_1_frequency
+        if self.chopper_min_operating_voltage > self.chopper_max_operating_voltage:
+            raise ValueError("chopper_min_operating_voltage must not exceed chopper_max_operating_voltage")
+        if not (self.sequence_slowdown_4_frequency <= self.sequence_slowdown_3_frequency
+                <= self.sequence_slowdown_2_frequency <= self.sequence_slowdown_1_frequency
                 <= self.sequence_normal_frequency):
-            raise ValueError("sequence frequencies must descend from normal to slowdown 1 to slowdown 2")
+            raise ValueError("sequence frequencies must descend from normal through slowdown 1, 2, 3 and 4")

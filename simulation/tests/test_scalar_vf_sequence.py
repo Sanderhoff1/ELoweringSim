@@ -3,6 +3,7 @@ import math
 import unittest
 
 from simulation.external_model import ExternalLoweringModel, reviewed_parameters
+from simulation.converter_controls import chopper_target
 from simulation.scalar_vf import (ScalarVFState, base_flux, base_voltage,
                                   stator_drop_compensation, step)
 
@@ -106,7 +107,9 @@ class SequenceTests(unittest.TestCase):
         p = reviewed_parameters(sequence_ready_time=0,
                                 sequence_normal_hold=0,
                                 sequence_slowdown_1_hold=0,
-                                sequence_slowdown_2_hold=0)
+                                sequence_slowdown_2_hold=0,
+                                sequence_slowdown_3_hold=0,
+                                sequence_slowdown_4_hold=0)
         model = ExternalLoweringModel(p)
         model.controls.automatic_profile = True
         model.reset()
@@ -122,10 +125,18 @@ class SequenceTests(unittest.TestCase):
         model.sequence.at_target_elapsed = .01
         model._sequence(.002)
         self.assertEqual(model.sequence.name, 'SLOWDOWN_1')
-        self.assertEqual(model.sequence.target_frequency, 10)
+        self.assertEqual(model.sequence.target_frequency, 15)
         model.sequence.at_target_elapsed = .01
         model._sequence(.002)
         self.assertEqual(model.sequence.name, 'SLOWDOWN_2')
+        self.assertEqual(model.sequence.target_frequency, 10)
+        model.sequence.at_target_elapsed = .01
+        model._sequence(.002)
+        self.assertEqual(model.sequence.name, 'SLOWDOWN_3')
+        self.assertEqual(model.sequence.target_frequency, 7.5)
+        model.sequence.at_target_elapsed = .01
+        model._sequence(.002)
+        self.assertEqual(model.sequence.name, 'SLOWDOWN_4')
         self.assertEqual(model.sequence.target_frequency, 5)
         model.sequence.at_target_elapsed = .01
         model._sequence(.002)
@@ -149,6 +160,44 @@ class SequenceTests(unittest.TestCase):
         self.assertEqual(model.frequency(), 0)
         self.assertEqual(reading['stator_frequency_command'], 0)
         self.assertFalse(reading['frequency_command_applicable'])
+
+    def test_capacitor_only_chopper_uses_measured_frequency(self):
+        model = ExternalLoweringModel(reviewed_parameters())
+        model.excitation_mode='capacitor'
+        model.reset()
+        model.electrical.measured_frequency=10
+        model.vf.frequency_command=20
+        self.assertEqual(model.chopper_frequency(),10)
+        reading=model.readings()
+        self.assertAlmostEqual(reading['chopper_target_frequency'],
+                               max(0,reading['bus_frequency']))
+        self.assertAlmostEqual(reading['chopper_target_voltage'],
+                               chopper_target(model.parameters,
+                                              max(0,reading['bus_frequency'])))
+
+    def test_normal_target_does_not_replace_hard_overvoltage_limit(self):
+        p=reviewed_parameters(chopper_reference_voltage=200,
+                              main_dc_max_voltage=650)
+        model=ExternalLoweringModel(p)
+        model.electrical.dc_energy=.5*model.electrical.capacitance*300**2
+        model._sequence(.002)
+        self.assertFalse(model.switchgear.fault)
+        model.electrical.dc_energy=.5*model.electrical.capacitance*651**2
+        model._sequence(.002)
+        self.assertEqual(model.switchgear.fault,'MAIN DC OVERVOLTAGE')
+
+    def test_dc_link_state_is_not_artificially_clamped_to_target(self):
+        model=ExternalLoweringModel(reviewed_parameters(dc_initial_voltage=450))
+        model.controls.main_bypass_command=True
+        model.reset()
+        model.vf.frequency_command=10
+        before=model.electrical.dc_voltage
+        self.assertEqual(before,450)
+        self.assertEqual(model.readings()['chopper_target_voltage'],200)
+        model.step(.002)
+        after=model.electrical.dc_voltage
+        self.assertNotEqual(after,200)
+        self.assertLess(abs(model.readings()['energy_residual']),1e-4)
 
     def test_runaway_fault_commands_brake(self):
         p = reviewed_parameters(runaway_dwell=.004)

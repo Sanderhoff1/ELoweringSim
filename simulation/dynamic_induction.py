@@ -7,7 +7,7 @@ from dataclasses import dataclass
 import cmath
 import math
 from .rectifier import bridge, K
-from .converter_controls import chopper as chopper_control, exciter
+from .converter_controls import chopper as chopper_control, chopper_target, exciter
 from .boost import support
 
 ELECTRICAL_DT = 0.0001
@@ -68,7 +68,13 @@ def circuit(p, y, time, omega, inverter, capacitors, connected=True, rectifier=F
     duty = float(y[4].real) if len(y)>4 else 0.0
     boost_current=y[5] if len(y)>5 else 0.0
     auxiliary=support(p,dc_voltage,boost_current,boost_enabled and rectifier)
-    command, dduty = chopper_control(p,float(dc_voltage.real),duty,chopper_enabled) if chopper else (1.0,0.0)
+    # Commanded excitation uses its command. Passive capacitor operation has no
+    # fake command; rotor electrical frequency is this legacy model's estimator.
+    control_frequency=(p.supply_frequency if inverter else
+                       abs(p.pole_pairs*omega)/(2*math.pi))
+    command, dduty = (chopper_control(p,float(dc_voltage.real),duty,
+                                     chopper_enabled,control_frequency)
+                      if chopper else (1.0,0.0))
     is_, ir, pm = currents(p, ps, pr, connected)
     ceq = 3*p.capacitor_capacitance*1e-6 if capacitors else 0.0
     if rectifier and not inverter and not ceq:
@@ -124,7 +130,9 @@ def circuit(p, y, time, omega, inverter, capacitors, connected=True, rectifier=F
         stator_current=is_, rotor_current=ir, magnetizing_flux=pm, torque=torque,
         source_power=source_power, load_power=load_power, copper_power=copper,
         rotor_loss=1.5*p.rotor_resistance*abs(ir)**2, ceq=ceq, dc=dc, inv=inv,
-        external_power=0.0 if dc_exciter else source_power, duty_command=command, boost=auxiliary)
+        external_power=0.0 if dc_exciter else source_power, duty_command=command,
+        chopper_target_voltage=chopper_target(p,control_frequency),
+        chopper_target_frequency=control_frequency,boost=auxiliary)
 
 
 def stored_energy(p, y, capacitors=True, connected=True):
@@ -205,6 +213,12 @@ def readings(p, state, omega, inverter, capacitors, connected=True, rectifier=Fa
         battery_energy=state.battery_energy,boost_loss_energy=state.boost_loss_energy,
         chopper_active=chopper, chopper_enabled=chopper_enabled,
         chopper_duty=state.chopper_duty if chopper else 1.0, chopper_command=r['duty_command'],
+        chopper_target_voltage=r['chopper_target_voltage'],
+        chopper_target_frequency=r['chopper_target_frequency'],
+        chopper_current=(state.chopper_duty*state.dc_voltage/p.dc_brake_resistance
+                         if chopper and rectifier else 0.0),
+        main_dc_overvoltage_limit=p.main_dc_max_voltage,
+        main_dc_overvoltage=state.dc_voltage>p.main_dc_max_voltage,
         dc_exciter=dc_exciter,inverter_status=r['inv']['status'],
         inverter_loss=r['inv']['loss'],inverter_loss_energy=state.inverter_loss_energy,
         inverter_dc_power=r['inv']['dc_power'],inverter_voltage_limit=r['inv']['maximum_voltage']*math.sqrt(3/2),

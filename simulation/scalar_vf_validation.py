@@ -105,8 +105,8 @@ def initialized_case(frequency, seconds=1.0, sample_interval=.01):
     model.electrical.phase=cmath.phase(pm)
     model.electrical.aux_energy=.5*model.electrical.aux_capacitance*p.boost_target_voltage**2
     # Select the DC voltage that initially accepts the theoretical exported
-    # power. The capacitor may subsequently charge because the chopper threshold
-    # is intentionally left at the real configured value.
+    # power. The scheduled chopper target and physical resistor then determine
+    # whether that initialized point can remain an equilibrium.
     lo,hi=0.0,math.sqrt(2)*equilibrium['line_voltage']
     for _ in range(60):
         rectified=(lo+hi)/2
@@ -211,7 +211,7 @@ def write_reports(root=None):
     for row in csv_rows:
         lines.append(f"| {row['target_hz']:g} | {'yes' if row['stable'] else 'no'} | {row['load_speed_m_min']:.3f} | {row['rotor_rpm']:.1f} | {row['actual_bus_frequency_hz']:.2f} / {row['target_hz']:g} | {row['slip']:.3f} | {row['v_ll_rms']:.1f} | {row['current_rms']:.2f} | {row['flux_target']:.3f} / {row['actual_flux']:.3f} | {row['copper_loss_w']:.1f} / {row['core_loss_w']:.1f} | {row['mechanical_input_w']:.1f} / {row['electrical_export_w']:.1f} / {row['dc_link_power_w']:.1f} / {row['resistor_power_w']:.1f} | {row['exciter_active_w']:.1f} / {row['exciter_reactive_var']:.1f} |")
     lines.extend(['',
-        'The isolated T-circuit calculation finds a machine torque equilibrium at every requested frequency, but that is not a stable equilibrium of the complete present architecture. At target flux the rectified crest is below the 500 V chopper threshold, so the DC capacitor charges without providing a continuous resistor load. Braking torque then collapses and rotor speed/frequency move away from the command. Lower frequencies additionally require increasing negative slip and convert a growing share of mechanical input into machine copper loss.',
+        'The isolated T-circuit calculation finds a machine torque equilibrium at every requested frequency, but the scheduled-target test must still demonstrate stability in the complete plant. Continuous power below 500 V is now possible. If duty saturates, the configured resistor and available generated voltage—not the target alone—bound braking power and the plant can move to a higher rotor-speed equilibrium.',
         ''])
     (docs/'scalar-vf-steady-points.md').write_text('\n'.join(lines),encoding='utf-8')
     model,rows=transition_run()
