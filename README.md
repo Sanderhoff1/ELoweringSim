@@ -390,6 +390,19 @@ skipping physics. An overloaded machine may lag behind requested playback.
 The shaft marker is a sampled orientation and can visually alias at high RPM;
 use slow playback and the numerical RPM readout.
 
+Completed pre-simulations can be saved with **Save Pre-Simulation** and restored
+with **Load Pre-Simulation**. A saved run is an open, inspectable pair: UTF-8 CSV
+contains every lightweight replay frame and an adjacent JSON file contains the
+versioned column schema, checksum, complete automatic snapshot of every
+`Parameters` field (including units), and the run/topology/controller/numerical
+configuration. Loading reconstructs playback directly and does not run physics
+or replace the editable Parameters values. **View Replay Parameters** shows the
+saved read-only context used by the animation.
+
+See [Saved pre-simulations](docs/pre-simulation-files.md) for the file layout,
+complete metadata contents, engineering-column conventions, and compatibility
+rules.
+
 ## Physical inputs
 
 All physical parameters and their units, defaults, meanings, status and allowed

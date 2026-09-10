@@ -14,6 +14,8 @@ FIELDS = (
     'machine_current_limit',
     'capacitor_line_current', 'capacitor_reactive_supply',
     'flux_magnitude', 'flux_target', 'maximum_flux', 'voltage_command',
+    'vf_base_voltage', 'vf_resistive_compensation', 'vf_flux_correction',
+    'vf_unlimited_voltage', 'vf_flux_error', 'vf_flux_integral',
     'excitation_scale', 'motor_torque', 'motor_shaft_power',
     'machine_copper_loss', 'machine_core_loss', 'magnetic_storage_power',
     'electrical_export', 'machine_reactive_demand', 'rectifier_current',
@@ -21,8 +23,8 @@ FIELDS = (
     'dc_capacitor_power', 'chopper_duty', 'dc_brake_power', 'brake_command',
     'brake_physical_state', 'brake_capacity', 'k_exc', 'k_precharge', 'k_main',
     'aux_voltage', 'aux_power', 'boost_power', 'battery_voltage',
-    'battery_current', 'battery_power', 'inverter_real_power',
-    'vf_current_limited', 'vf_flux_limited',
+    'battery_current', 'battery_power', 'inverter_real_power','inverter_reactive_supply',
+    'vf_current_limited', 'vf_flux_limited','vf_voltage_limited',
     'power_transfer_limited', 'runaway', 'fault', 'energy_residual')
 
 
@@ -63,6 +65,9 @@ def classification(row, parameters):
         return 'not reached'
     if row['runaway'] or row['fault']:
         return 'unstable/runaway'
+    command=row['stator_frequency_command']
+    if command and abs(row['bus_frequency']-command)>max(.5,.05*command):
+        return 'frequency-control-limited'
     if row['vf_current_limited']:
         return 'current-limited'
     if row['vf_flux_limited']:
@@ -74,7 +79,8 @@ def classification(row, parameters):
 
 def svg(rows, path):
     traces = (
-        ('Frequency command [Hz]', (('command', 'stator_frequency_command', 1),)),
+        ('Electrical frequency [Hz]', (('command', 'stator_frequency_command', 1),
+                                       ('actual bus', 'bus_frequency', 1))),
         ('Load speed [m/min]', (('speed', 'velocity', 60),)),
         ('Motor current [A RMS]', (('current', 'machine_line_current', 1),)),
         ('Flux [Wb turn]', (('flux', 'flux_magnitude', 1),)),
@@ -128,13 +134,13 @@ def report(mode, model, rows):
         points = [(frequency, operating_point(rows, state, frequency))
                   for frequency, state in state_for_frequency.items()]
         lines.extend([
-            '| Target | Status | Speed [m/min] | Rotor [rpm] | Sync [rpm] | Slip | V LL [V] | I line [A] | I active [A] | I reactive [A] | Flux / max [Wb] | Torque [N m] |',
-            '|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|'])
+            '| Target | Status | Actual f [Hz] | Speed [m/min] | Rotor [rpm] | Sync [rpm] | Slip | V LL [V] | I line [A] | I active [A] | I reactive [A] | Flux target / actual / max [Wb] | Torque [N m] |',
+            '|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|'])
         for frequency, row in points:
             if row is None:
-                lines.append(f'| {frequency} Hz | not reached | - | - | - | - | - | - | - | - | - | - |')
+                lines.append(f'| {frequency} Hz | not reached | - | - | - | - | - | - | - | - | - | - | - |')
                 continue
-            lines.append(f'| {frequency} Hz | {classification(row, model.parameters)} | {60*row["velocity"]:.3f} | {row["rpm"]:.2f} | {row["synchronous_rpm"]:.2f} | {row["slip"]:.4f} | {row["line_voltage"]:.2f} | {row["machine_line_current"]:.3f} | {row["machine_active_current"]:.3f} | {row["machine_reactive_current"]:.3f} | {row["flux_magnitude"]:.3f} / {row["maximum_flux"]:.3f} | {row["motor_torque"]:.3f} |')
+            lines.append(f'| {frequency} Hz | {classification(row, model.parameters)} | {row["bus_frequency"]:.2f} | {60*row["velocity"]:.3f} | {row["rpm"]:.2f} | {row["synchronous_rpm"]:.2f} | {row["slip"]:.4f} | {row["line_voltage"]:.2f} | {row["machine_line_current"]:.3f} | {row["machine_active_current"]:.3f} | {row["machine_reactive_current"]:.3f} | {row["flux_target"]:.3f} / {row["flux_magnitude"]:.3f} / {row["maximum_flux"]:.3f} | {row["motor_torque"]:.3f} |')
         lines.extend(['',
             '| Target | Mechanical in [W] | Copper [W] | Core [W] | Magnetic storage [W] | AC export [W] | Q demand [var] | Rectifier AC [W] | DC in [W] | Vdc [V] | DC capacitor [W] | Resistor [W] |',
             '|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|'])
@@ -158,9 +164,24 @@ def report(mode, model, rows):
                       f'- Export/rectifier/DC/resistor: {row["electrical_export"]:.2f} / {row["rectifier_power"]:.2f} / {row["dc_input_power"]:.2f} / {row["dc_brake_power"]:.2f} W',
                       f'- Chopper duty: {100*row["chopper_duty"]:.2f}%',
                       f'- DC link/capacitor power: {row["dc_voltage"]:.2f} V / {row["dc_capacitor_power"]:.2f} W'])
-    if mode == 'exciter' and final['fault']:
-        lines.extend(['',
-                      f'Conclusion: the retained scalar V/f setup is usable at the reported settled points, but the automatic slowdown did not complete. Protection tripped on `{final["fault"]}` before any lower target marked `not reached`; those targets are physical validation failures, not zero-filled successes.'])
+    if mode == 'exciter':
+        reached=[row for _,row in points if row is not None]
+        max_flux=max(row['flux_magnitude'] for row in rows)
+        max_current=max(row['machine_line_current'] for row in rows)
+        lines.extend(['', '## Controller audit', '',
+                      '- `flux_target` and `flux_magnitude` are the same quantity: peak per-phase magnetizing flux linkage. The target is derived from line-line RMS V/Hz using `sqrt(2/3)/(2 pi)`, so the former 0.95 versus 1.204 discrepancy was real overflux, not an RMS/peak or line/phase mismatch.',
+                      '- Stator-resistance compensation now projects the winding-current phasor onto the induced-voltage axis. It adds voltage for motoring active current, subtracts it for generating active current, and does not treat quadrature magnetizing current as a resistive boost.',
+                      '- Normal target-flux PI regulation is separate from current/overflux/modulation protection. Protection derating starts only near the configured maximum and cannot redefine the displayed target.',
+                      '- The trace logs base voltage, signed resistance compensation, PI correction, unlimited/final voltage, flux error/integral, every limiter, actual bus frequency, active/reactive power, DC-link behavior, contactors, brake state, and faults at 10 ms intervals.', '',
+                      f'Observed maxima: {max_flux:.3f} Wb-turn flux and {max_current:.3f} A RMS current.'])
+        if reached and any(classification(row,model.parameters)=='frequency-control-limited'
+                           for row in reached):
+            lines.extend(['',
+                'Conclusion: flux regulation no longer causes the slowdown failure, but the retained scalar source does not establish the requested low electrical frequency in this generating/passive-DC plant. The command reaches its scheduled values while actual bus frequency remains set mainly by rotor motion. Independently initialized machine equilibria exist, but below the present DC-link/chopper operating point the rectifier cannot sustain the required braking load; the capacitor charges, braking torque collapses, and the plant moves away. This is a controller-authority/DC-energy-absorption limit of the present architecture, not proof that a commanded point is stable.'])
+        elif final['fault']:
+            lines.extend(['',f'Conclusion: the sequence ended on `{final["fault"]}`; no unreached target is reported as a success.'])
+        else:
+            lines.extend(['','Conclusion: all reported points met the frequency-tracking criterion in this run.'])
     elif mode == 'capacitor' and final['fault']:
         lines.extend(['',
                       'Conclusion: this passive capacitance does not reach a safe stable lowering equilibrium before protection acts.'])

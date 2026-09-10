@@ -88,6 +88,8 @@ def _json_value(value: Any) -> Any:
         return {str(key): _json_value(item) for key, item in value.items()}
     if isinstance(value, (list, tuple)):
         return [_json_value(item) for item in value]
+    if isinstance(value, complex):
+        return {"real": value.real, "imag": value.imag}
     if value is None or isinstance(value, (str, bool, int, float)):
         return value
     return str(value)
@@ -150,14 +152,14 @@ def _slug(value: str) -> str:
 
 def _inferred_unit(name: str) -> tuple[str, str]:
     lower = name.lower()
-    if "reactive" in lower or lower.endswith("_q") or "_q_" in lower:
-        return "var", "var"
     if lower.endswith("_rpm") or lower == "rpm":
         return "rpm", "RPM"
     if "frequency" in lower:
         return "hz", "Hz"
     if "current" in lower:
         return "a", "A"
+    if "reactive" in lower or lower.endswith("_q") or "_q_" in lower:
+        return "var", "var"
     if "voltage" in lower:
         return "v", "V"
     if "energy" in lower:
@@ -192,6 +194,8 @@ def _value_type(values) -> str:
     if all(isinstance(value, (int, float)) and not isinstance(value, bool)
            for value in present):
         return "float"
+    if all(isinstance(value, complex) for value in present):
+        return "complex"
     if all(isinstance(value, str) for value in present):
         return "string"
     return "json"
@@ -260,8 +264,12 @@ def _encode(value, item):
     scale = item.get("csv_scale", 1.0)
     if item["type"] == "bool":
         return "true" if value else "false"
-    if item["type"] in ("int", "float"):
+    if item["type"] == "int":
+        return str(value)
+    if item["type"] == "float":
         return repr(value * scale)
+    if item["type"] == "complex":
+        return repr(value)
     if item["type"] == "string":
         return value
     return json.dumps(_json_value(value), ensure_ascii=False, separators=(",", ":"))
@@ -325,6 +333,11 @@ def _decode(value: str, item: dict):
         if not math.isfinite(result):
             raise ValueError(f"Non-finite number in {item['column']}")
         return result
+    if kind == "complex":
+        result = complex(value)
+        if not math.isfinite(result.real) or not math.isfinite(result.imag):
+            raise ValueError(f"Non-finite complex number in {item['column']}")
+        return result
     return json.loads(value)
 
 
@@ -363,6 +376,10 @@ def load_pre_simulation(path) -> LoadedReplay:
     schema = metadata.get("csv_schema")
     if not isinstance(schema, list) or not schema:
         raise ValueError("Replay metadata does not contain a CSV schema.")
+    telemetry_interval = metadata.get("telemetry_interval_s")
+    if (not isinstance(telemetry_interval, (int, float))
+            or not math.isfinite(telemetry_interval) or telemetry_interval <= 0):
+        raise ValueError("Replay metadata has an invalid telemetry interval.")
     frames_out = []
     with csv_path.open("r", encoding="utf-8-sig", newline="") as stream:
         reader = csv.DictReader(stream)

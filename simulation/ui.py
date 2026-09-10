@@ -127,6 +127,7 @@ class Application:
         self.presim_wall = 0.0
         self.presim_parameter_snapshot = None
         self.presim_run_configuration = None
+        self.presim_telemetry_interval = TELEMETRY_INTERVAL
         self.replay_parameters = None
         self.replay_model_context = None
         self.loaded_replay_source = None
@@ -840,7 +841,7 @@ class Application:
         try:
             csv_path, metadata_path, metadata = save_pre_simulation(
                 selected, self.presim_frames, self.presim_parameter_snapshot,
-                self.presim_run_configuration or {}, TELEMETRY_INTERVAL)
+                self.presim_run_configuration or {}, self.presim_telemetry_interval)
         except (OSError, TypeError, ValueError) as error:
             self.message.set(f'Could not save pre-simulation: {error}')
             return
@@ -880,6 +881,8 @@ class Application:
         self.presim_progress.set(100)
         self.presim_parameter_snapshot = saved_parameters
         self.presim_run_configuration = loaded.metadata.get('run_configuration', {})
+        self.presim_telemetry_interval = loaded.metadata.get(
+            'telemetry_interval_s', TELEMETRY_INTERVAL)
         self.replay_parameters = display_parameters
         self.loaded_replay_source = loaded.csv_path
         self._build_replay_model_context()
@@ -937,6 +940,7 @@ class Application:
         self.presim_index = 0
         self.presim_parameter_snapshot = parameter_snapshot(self.model.parameters)
         self.presim_run_configuration = self.capture_run_configuration(duration)
+        self.presim_telemetry_interval = TELEMETRY_INTERVAL
         self.replay_parameters = self.model.parameters
         self.replay_model_context = None
         self.loaded_replay_source = None
@@ -1035,6 +1039,7 @@ class Application:
             self.presim_wall = 0.0
             self.presim_parameter_snapshot = None
             self.presim_run_configuration = None
+            self.presim_telemetry_interval = TELEMETRY_INTERVAL
             self.replay_parameters = None
             self.replay_model_context = None
             self.loaded_replay_source = None
@@ -1060,7 +1065,7 @@ class Application:
         self.performance.add('frame', frame_finished-frame_started)
         if self.view_tabs.index(self.view_tabs.select()) == 0:
             self.performance.report_if_ready(
-                self.model.parameters.mass, bool(self.presim_frames),
+                self.display_parameters().mass, bool(self.presim_frames),
                 self.energy_view.created_once, self.energy_view.updates_last_frame)
         self.next_frame_time += FRAME_INTERVAL
         if self.next_frame_time < frame_finished-FRAME_INTERVAL:
@@ -1111,6 +1116,8 @@ class Application:
 
     def draw(self):
         s, r, display_history, flags = self.display_snapshot()
+        display_model = self.display_model(s)
+        p = self.display_parameters()
         if self.released.get() != flags['brake_released']:
             self.released.set(flags['brake_released'])
         if self.view_tabs.index(self.view_tabs.select())==0:
@@ -1119,7 +1126,7 @@ class Application:
             if update_text:
                 self.next_text_time = now+TEXT_INTERVAL
             started = time.perf_counter()
-            self.energy_view.draw(self.model, r, display_history, self.playing,
+            self.energy_view.draw(display_model, r, display_history, self.playing,
                                   visual_time=r.get('_visual_time', r['_time']),
                                   update_text=update_text)
             self.performance.add('energy_draw', time.perf_counter()-started)
@@ -1133,19 +1140,21 @@ class Application:
             c.create_text(x, y, text=text, fill=color, font=("Segoe UI", size), anchor=anchor)
         label(22, 15, f"t = {s.time:8.3f} s    playback {self.active_speed:g}×    {'RUNNING' if self.playing else 'PAUSED'}", size=15)
         label(22, 49, f"Descent {r['velocity']:.3f} m/s    acceleration {r['acceleration']:.3f} m/s²    shaft {r['rpm']:.1f} RPM" + (f"   lag {self.clock.pending:.1f} s" if self.clock.pending>0.2 else ''))
-        self.draw_crane(label, s)
+        self.draw_crane(label, s, p)
         # Telemetry owns the column to the right of the 700 px crane scene.
         info_x = 640
         label(info_x, 90, "LANDED — Reset to restart" if s.grounded else "LOWERING BAY", color="#f5bc57", size=13)
-        label(info_x, 124, f"Clearance: {r['clearance']:.3f} m\nTravel: {s.position:.3f} / {self.model.parameters.crane_height:g} m\nBrake command: {'RELEASE' if flags['brake_released'] else 'APPLY'}\nAvailable brake torque: {r['brake_capacity']:.1f} N m")
+        label(info_x, 124, f"Clearance: {r['clearance']:.3f} m\nTravel: {s.position:.3f} / {p.crane_height:g} m\nBrake command: {'RELEASE' if flags['brake_released'] else 'APPLY'}\nAvailable brake torque: {r['brake_capacity']:.1f} N m")
         c.create_rectangle(info_x, 215, info_x+350, 229, fill="#293140", outline="")
-        c.create_rectangle(info_x, 215, info_x+350*(r['brake_capacity']/max(self.model.parameters.brake_torque, 1e-9)), 229, fill="#f5bc57", outline="")
+        c.create_rectangle(info_x, 215, info_x+350*(r['brake_capacity']/max(p.brake_torque, 1e-9)), 229, fill="#f5bc57", outline="")
         label(info_x, 250, f"Shaft angle: {s.angle:.2f} rad\nShaft speed: {s.omega:.2f} rad/s\nPotential energy*: {r['potential_energy']:.1f} J\nKinetic energy: {r['kinetic_energy']:.1f} J\nGravity power: {r['gravity_power']:.1f} W\nBrake dissipation: {r['brake_power']:.1f} W\nViscous dissipation: {r['friction_power']:.1f} W")
         label(info_x, 410, f"Impact: {s.impact_speed:.2f} m/s · {s.impact_energy:.1f} J" if s.grounded else "*Energy relative to starting height", color="#93a3ba", size=9)
 
         # Electrical telemetry occupies its own row below the illustration.
         connected = flags['motor_connected']
-        dynamic = self.dynamic_mode.get()
+        dynamic = ((self.presim_run_configuration or {}).get('ui_configuration', {})
+                   .get('dynamic_mode', self.dynamic_mode.get())
+                   if self.presim_frames else self.dynamic_mode.get())
         mode_color = '#4ee1bd' if r['motor_mode'] == 'GENERATING' else '#f5bc57'
         label(22, 455, f"INDUCTION MACHINE · {r['motor_mode']}", color=mode_color, size=12)
         slip_text = f"{100*r['slip']:.2f}%" if r.get('slip_valid',True) else 'undefined (no rotating voltage)'
@@ -1156,7 +1165,7 @@ class Application:
         label(22, 630, 'BATTERY / BOOST · SMALL FLUX EXCITER' if r.get('external_exciter') else 'DC-FED EXCITATION · '+r['inverter_status'] if r.get('dc_exciter') else "IDEAL EXCITATION · ON" if (dynamic or connected) and flags['inverter_enabled'] else "IDEAL EXCITATION · OFF / DISCONNECTED", color='#4ee1bd', size=12)
         voltage_note = 'V RMS-equivalent' if dynamic else 'V RMS'
         field_note = f"Flux: {r.get('flux_magnitude',0):.4f} Wb turn" if dynamic else f"Effective peak torque: {r['effective_peak_torque']:.1f} N m"
-        frequency_note = f"Bus frequency: {r.get('bus_frequency',0):.2f} Hz (vector estimate)" if dynamic else f"Frequency: {self.model.parameters.supply_frequency:g} Hz (fixed setpoint)"
+        frequency_note = f"Bus frequency: {r.get('bus_frequency',0):.2f} Hz (vector estimate)" if dynamic else f"Frequency: {p.supply_frequency:g} Hz (fixed setpoint)"
         command_note=(f"V/f command: {r['stator_frequency_command']:.2f} -> {r['frequency_target']:.2f} Hz; {r['voltage_command']:.1f} V LL"
                       if r.get('frequency_command_applicable') else 'Passive mode: no frequency or voltage command')
         field_note=(f"Flux: {r.get('flux_magnitude',0):.4f} / {r['maximum_flux']:.3f} Wb turn"
@@ -1165,9 +1174,9 @@ class Application:
                          if 'machine_current_limit' in r else f"{r['machine_line_current']:.3f} A RMS")
         label(22, 660, f"AC line voltage: {r['line_voltage']:.2f} {voltage_note}\n{frequency_note}\n{command_note}\n{field_note}")
         label(470, 660, f"Inverter current: {r['inverter_current']:.3f} A RMS\nNet inverter VAR: {r['inverter_reactive_supply']:+.1f} var\nInverter real power: {r['inverter_real_power']:.1f} W\nMachine line current: {machine_current}\nMachine active/reactive current: {r.get('machine_active_current',0):+.3f} / {r.get('machine_reactive_current',0):+.3f} A")
-        label(22, 756, f"DC-fed: {r['inverter_dc_power']:+.1f} W from DC · {r['inverter_loss']:.1f} W loss · ceiling {r['inverter_voltage_limit']:.1f} V LL · limit {self.model.parameters.inverter_current_limit:g} A" if r.get('dc_exciter') else f"External supply {r['external_supply_power']:.1f} W · converter loss {r['inverter_loss']:.1f} W · limited active power; passive regeneration" if r.get('external_exciter') else 'Ideal inverter uses an external energy source/sink; OFF means zero inverter current.' if dynamic else "Inverter VAR: positive supplies, negative absorbs. Real watts use the ideal P boundary.", color='#93a3ba', size=10)
+        label(22, 756, f"DC-fed: {r['inverter_dc_power']:+.1f} W from DC · {r['inverter_loss']:.1f} W loss · ceiling {r['inverter_voltage_limit']:.1f} V LL · limit {p.inverter_current_limit:g} A" if r.get('dc_exciter') else f"External supply {r['external_supply_power']:.1f} W · converter loss {r['inverter_loss']:.1f} W · limited active power; passive regeneration" if r.get('external_exciter') else 'Ideal inverter uses an external energy source/sink; OFF means zero inverter current.' if dynamic else "Inverter VAR: positive supplies, negative absorbs. Real watts use the ideal P boundary.", color='#93a3ba', size=10)
         label(22, 795, "PARALLEL AC CAPACITORS · DELTA", color='#4ee1bd', size=12)
-        label(22, 826, f"Bank: {'CONNECTED' if flags['capacitors_enabled'] else 'DISCONNECTED'}\nCapacitance: {self.model.parameters.capacitor_capacitance:g} µF per branch\nCapacitor supply: {r['capacitor_reactive_supply']:.1f} var\nCapacitor line current: {r['capacitor_line_current']:.3f} A RMS")
+        label(22, 826, f"Bank: {'CONNECTED' if flags['capacitors_enabled'] else 'DISCONNECTED'}\nCapacitance: {p.capacitor_capacitance:g} µF per branch\nCapacitor supply: {r['capacitor_reactive_supply']:.1f} var\nCapacitor line current: {r['capacitor_line_current']:.3f} A RMS")
         capacitor_note = (f"Capacitor energy: {r.get('capacitor_energy',0):.3f} J\nMagnetic energy: {r.get('magnetic_energy',0):.3f} J\nAC test load: {r.get('load_power',0):.2f} W\nEnergy balance error: {r.get('energy_residual',0):.4g} J" if dynamic else f"Machine VAR demand: {r['machine_reactive_demand']:.1f} var\nCompensation: {100*r['compensation_fraction']:.1f}%\nFull compensation C: {r['matching_capacitance']:.1f} µF/branch\nVoltage held by the ideal inverter")
         label(470, 826, capacitor_note)
         label(22, 925, 'Self-excitation depends on speed, capacitance, seed, saturation and loading; no voltage clamp when OFF.' if dynamic else "Steady-state compensation only: capacitor-only self-excitation and switching transients are not modeled.", color='#93a3ba', size=10)
@@ -1227,8 +1236,9 @@ class Application:
                     label(right, bottom+2, f"{end:.2f} s", color="#93a3ba", size=8, anchor="ne")
         c.configure(scrollregion=(0, 0, width, history_y+2240))
 
-    def draw_crane(self, label, state=None):
-        c, s, p = self.canvas, state or self.model.state, self.model.parameters
+    def draw_crane(self, label, state=None, parameters=None):
+        c, s = self.canvas, state or self.model.state
+        p = parameters or self.display_parameters()
         # The static machinery is a generated technical illustration informed
         # by Liftra's LT1200 arrangement. Only simulated parts are drawn live.
         scene_x, scene_y = 18, 80

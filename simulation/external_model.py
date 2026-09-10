@@ -446,7 +446,7 @@ class ExternalLoweringModel(MechanicalModel):
     def _sequence(self,dt):
         """Backup-lowering state machine; it only commands modeled hardware."""
         p,s,e,sw=self.parameters,self.state,self.electrical,self.switchgear
-        is_,_,_=self.kernel.currents(e.stator_flux,e.rotor_flux)
+        is_,_,pm=self.kernel.currents(e.stator_flux,e.rotor_flux)
         machine_input=1.5*(e.voltage*(is_+e.voltage*self.kernel.gc).conjugate()).real
         measured_export=-machine_input
         line_voltage=math.sqrt(1.5)*abs(e.voltage)
@@ -555,7 +555,8 @@ class ExternalLoweringModel(MechanicalModel):
             seq.target_frequency=targets.get(seq.name,0.0)
             if self.excitation_mode=='exciter':
                 scalar_vf_step(p,self.vf,dt,seq.target_frequency,flux,motor_current,
-                               e.aux_voltage,seq.name not in ('OFF','AUXILIARY_START','STOPPED','FAULT'))
+                               e.aux_voltage,seq.name not in ('OFF','AUXILIARY_START','STOPPED','FAULT'),
+                               is_,pm,e.phase)
                 if abs(self.vf.frequency_command-seq.target_frequency)<=.05:
                     seq.at_target_elapsed+=dt
                 else:
@@ -863,6 +864,12 @@ class ExternalLoweringModel(MechanicalModel):
             frequency_target=(self.sequence.target_frequency if self.excitation_mode=='exciter' else 0.0),
             frequency_command_applicable=self.excitation_mode=='exciter',
             voltage_command=self.vf.voltage_command if self.excitation_mode=='exciter' else 0.0,
+            vf_base_voltage=self.vf.base_voltage_command if self.excitation_mode=='exciter' else 0.0,
+            vf_resistive_compensation=self.vf.resistive_compensation if self.excitation_mode=='exciter' else 0.0,
+            vf_flux_correction=self.vf.flux_correction if self.excitation_mode=='exciter' else 0.0,
+            vf_unlimited_voltage=self.vf.unlimited_voltage_command if self.excitation_mode=='exciter' else 0.0,
+            vf_flux_error=self.vf.flux_error if self.excitation_mode=='exciter' else 0.0,
+            vf_flux_integral=self.vf.flux_integral if self.excitation_mode=='exciter' else 0.0,
             flux_target=self.vf.flux_target if self.excitation_mode=='exciter' else 0.0,
             maximum_flux=p.maximum_magnetic_flux,
             slip=(sync-omega)/sync if valid else 0,slip_valid=valid,synchronous_rpm=sync*60/(2*math.pi),
@@ -925,6 +932,7 @@ class ExternalLoweringModel(MechanicalModel):
             sequence_state=self.sequence.name,sequence_state_elapsed=self.sequence.elapsed,
             automatic_profile=self.controls.automatic_profile,
             vf_current_limited=self.vf.current_limited,vf_flux_limited=self.vf.flux_limited,
+            vf_voltage_limited=self.vf.voltage_limited,
             power_transfer_limited=(self.sequence.name in ('LOWERING','SLOWDOWN_1','SLOWDOWN_2')
                                     and (-power.real <= r.copper+r.core or r.dc_input <= 1.0)),
             excitation_scale=self.vf.excitation_scale,runaway=self.sequence.runaway,

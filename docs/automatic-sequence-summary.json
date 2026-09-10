@@ -1,8 +1,8 @@
 {
   "exciter": {
-    "final_state": "FAULT",
-    "fault": "MACHINE OVERFLUX",
-    "energy_residual": 0.00039851977794569393
+    "final_state": "STOPPED",
+    "fault": "",
+    "energy_residual": 0.00010723900550146936
   },
   "capacitor": {
     "final_state": "FAULT",
