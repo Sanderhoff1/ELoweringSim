@@ -22,7 +22,7 @@ class ExciterSolverError(RuntimeError):
     """The numerical AC-bus solve failed; this is never a physical trip."""
 
 
-def _bounded_network_root(function, seeds, bound, tolerance=2e-8):
+def _bounded_network_root(function, seeds, bound, tolerance=2e-8, robust=True):
     """Hybrid bounded trust-region solve for the clipped two-axis KCL.
 
     Multiple physical seeds and a coarse polar fallback cross current/power
@@ -36,9 +36,10 @@ def _bounded_network_root(function, seeds, bound, tolerance=2e-8):
         nonlocal best
         value=project(seed)
         trust=max(bound/3,1.0)
+        residual=function(value)
         for iteration in range(max_iterations):
-            residual=function(value)[0]
-            norm=abs(residual)
+            vector=residual[0]
+            norm=abs(vector)
             if norm<best[0]: best=(norm,value,iteration+1)
             if norm<tolerance:
                 return value,iteration+1,norm
@@ -47,20 +48,33 @@ def _bounded_network_root(function, seeds, bound, tolerance=2e-8):
             dy=(function(project(value+1j*eps))[0]-function(project(value-1j*eps))[0])/(2*eps)
             determinant=dx.real*dy.imag-dy.real*dx.imag
             if abs(determinant)<=1e-18: break
-            step=complex((residual.real*dy.imag-residual.imag*dy.real)/determinant,
-                         (dx.real*residual.imag-dx.imag*residual.real)/determinant)
+            step=complex((vector.real*dy.imag-vector.imag*dy.real)/determinant,
+                         (dx.real*vector.imag-dx.imag*vector.real)/determinant)
             if abs(step)>trust: step*=trust/abs(step)
             accepted=False
             for _ in range(24):
                 trial=project(value-step)
-                if abs(function(trial)[0])<norm:
-                    value=trial;trust=min(bound,max(trust,2*abs(step)));accepted=True;break
+                trial_residual=function(trial)
+                if abs(trial_residual[0])<norm:
+                    value=trial;residual=trial_residual
+                    trust=min(bound,max(trust,2*abs(step)));accepted=True;break
                 step*=.5;trust*=.5
             if not accepted: break
         return None,0,best[0]
     # Continuation from the previous terminal voltage is normally a one- or
     # two-iteration solve.  Only invoke the wider bounded search at a limit
     # transition or after a poor initial condition.
+    seeds=tuple(seeds)
+    # Adjacent electrical/RK states are normally very close, so try only that
+    # continuation seed before invoking the wider bounded search.  Central
+    # differences are retained because the timestep study found that forward
+    # differences accumulated enough trajectory error to move an automatic
+    # profile transition.
+    if seeds:
+        result=attempt(seeds[0],8)
+        if result[0] is not None:return result
+    if not robust:
+        return None,0,best[0]
     for seed in seeds:
         result=attempt(seed,20)
         if result[0] is not None: return result
@@ -205,6 +219,12 @@ class Kernel:
         self.cac=3*p.capacitor_capacitance*1e-6
         self.cdc=p.dc_capacitance*1e-6
         self.gc=1/p.core_loss_resistance
+        self.sqrt15=math.sqrt(1.5)
+        self.sqrt2=math.sqrt(2.0)
+        self.torque_coefficient=1.5*p.pole_pairs
+        self.stator_copper_coefficient=1.5*p.stator_resistance
+        self.rotor_copper_coefficient=1.5*p.rotor_resistance
+        self.core_coefficient=1.5*self.gc
         self.flux=p.exciter_flux_target
         self.imag=self.flux/p.magnetizing_inductance*(1+(self.flux/p.saturation_flux)**2)
 
@@ -221,7 +241,7 @@ class Kernel:
 
     def torque(self,ps,pr):
         is_,_,_=self.currents(ps,pr)
-        return 1.5*self.p.pole_pairs*(ps.conjugate()*is_).imag
+        return self.torque_coefficient*(ps.conjugate()*is_).imag
 
     def winding_rates(self,ps,pr,voltage,omega):
         """Prescribed-terminal machine path, also used for independent validation."""
@@ -260,56 +280,85 @@ class Kernel:
                            if bridge_state=='precharge' else p.rectifier_resistance)
         bridge_connected=bridge_state in ('precharge','main')
         converter_enabled=enabled
+        cached_voltage=None
+        cached_network=None
         def network(v):
-            idc,pac,total_bridge_loss=(transfer(math.sqrt(1.5)*abs(v),vdc,bridge_resistance)
+            nonlocal cached_voltage,cached_network
+            if v==cached_voltage:
+                return cached_network
+            amplitude=abs(v)
+            idc,pac,total_bridge_loss=(transfer(self.sqrt15*amplitude,vdc,bridge_resistance)
                                         if bridge_connected else (0.0,0.0,0.0))
             precharge_loss=(total_bridge_loss*p.dc_precharge_resistance/bridge_resistance
                             if bridge_state=='precharge' else 0.0)
             bridge_loss=total_bridge_loss-precharge_loss
-            ib=(2*pac/(3*abs(v)**2))*v if abs(v)>1e-12 else 0j
-            load=is_+v*self.gc+ib
-            wanted=1j*we*v+(commanded-v)/p.excitation_response
-            request=load+self.cac*wanted if capacitor_mode else (source-v)/p.inverter_output_resistance
-            ie,external,loss,limited=exciter_current(p,v,request,1j*axis,
-                -1.5*(v*(is_+v*self.gc).conjugate()).real,converter_enabled,self.supply_limit,
-                dc_voltage=vaux,active_limit=active_limit)
-            return load-ie,ie,external,loss,limited,idc,pac,bridge_loss,precharge_loss
+            ib=(2*pac/(3*amplitude*amplitude))*v if amplitude>1e-12 else 0j
+            core_current=v*self.gc
+            load=is_+core_current+ib
+            if converter_enabled:
+                wanted=1j*we*v+(commanded-v)/p.excitation_response
+                request=load+self.cac*wanted if capacitor_mode else (source-v)/p.inverter_output_resistance
+                ie,external,loss,limited=exciter_current(p,v,request,1j*axis,
+                    -1.5*(v*(is_+core_current).conjugate()).real,True,self.supply_limit,
+                    dc_voltage=vaux,active_limit=active_limit)
+            else:
+                ie=0j;external=loss=0.0;limited=False
+            cached_voltage=v
+            cached_network=(load-ie,ie,external,loss,limited,idc,pac,
+                            bridge_loss,precharge_loss)
+            return cached_network
         if not capacitor_mode:
             # The passive point is an exact physical seed, including the
             # bridge state.  It is also the correct solution when the exciter
             # is disabled or voltage-blocked.
-            lo,hi=0.,max(1.0,abs(is_)/self.gc)
-            for _ in range(80):
-                radius=(lo+hi)/2
-                _,power,_=(transfer(math.sqrt(1.5)*radius,vdc,bridge_resistance)
-                            if bridge_connected else (0.,0.,0.))
-                passive_current=self.gc*radius+(2*power/(3*radius) if radius else 0.)
-                if passive_current>abs(is_): hi=radius
-                else: lo=radius
-            passive=-is_*(lo+hi)/(2*abs(is_)) if abs(is_) else 0j
+            passive=None
+            def passive_point():
+                nonlocal passive
+                if passive is not None:return passive
+                lo,hi=0.,max(1.0,abs(is_)/self.gc)
+                # This is a fallback/seed calculation. Stop once further
+                # refinement is below useful double precision instead of
+                # spending iterations beyond the 53-bit mantissa.
+                for _ in range(64):
+                    radius=(lo+hi)/2
+                    _,power,_=(transfer(self.sqrt15*radius,vdc,bridge_resistance)
+                                if bridge_connected else (0.,0.,0.))
+                    passive_current=self.gc*radius+(2*power/(3*radius) if radius else 0.)
+                    if passive_current>abs(is_): hi=radius
+                    else: lo=radius
+                    if hi-lo<=1e-11*max(1.0,hi):break
+                passive=-is_*(lo+hi)/(2*abs(is_)) if abs(is_) else 0j
+                return passive
             physical_infeasible=False
             if enabled:
-                bound=max(abs(passive)*1.05,ceiling+p.inverter_output_resistance*math.sqrt(2)*p.inverter_current_limit,1.0)
-                v,iterations,residual=_bounded_network_root(network,(v,commanded,source,passive,0j),bound)
+                converter_bound=max(ceiling+p.inverter_output_resistance*self.sqrt2*p.inverter_current_limit,1.0)
+                warm_voltage=v
+                v,iterations,residual=_bounded_network_root(
+                    network,(warm_voltage,),converter_bound,robust=False)
+                if v is None:
+                    passive=passive_point()
+                    bound=max(abs(passive)*1.05,converter_bound)
+                    v,iterations,residual=_bounded_network_root(
+                        network,(warm_voltage,commanded,source,passive,0j),bound)
                 if v is None:
                     # A clipped command may have no conducting equilibrium.
                     # Treat it as a physical converter-limit block only when
                     # the best bounded residual is small and the passive-point
                     # evaluator confirms a limit.  Larger/unlimited failures
                     # remain explicit numerical errors.
+                    passive=passive_point()
                     passive_limited=network(passive)[4]
-                    if passive_limited and residual<max(.01,.025*math.sqrt(2)*p.inverter_current_limit):
+                    if passive_limited and residual<max(.01,.025*self.sqrt2*p.inverter_current_limit):
                         converter_enabled=False
                         v=passive;physical_infeasible=True
                     else:
                         raise ExciterSolverError(
                             f'AC-bus numerical solve failed: residual={residual:.6g} A, bound={bound:.6g} V peak')
-                solved=True
             else:
+                passive=passive_point()
                 v=passive
                 iterations=0
                 residual=abs(network(v)[0])
-                solved=True
         mismatch,ie,external,loss,limited,idc,pac,bridge_loss,precharge_loss=network(v)
         solver_status=('DYNAMIC' if capacitor_mode else 'PHYSICALLY_INFEASIBLE_BLOCKED' if physical_infeasible else
                        'PASSIVE' if not enabled else
@@ -318,11 +367,13 @@ class Kernel:
         iterations=0 if capacitor_mode else iterations
         residual=abs(mismatch)
         dv=-mismatch/self.cac if capacitor_mode else 0j
-        torque=1.5*p.pole_pairs*(ps.conjugate()*is_).imag
-        copper=1.5*(p.stator_resistance*abs(is_)**2+p.rotor_resistance*abs(ir)**2)
+        torque=self.torque_coefficient*(ps.conjugate()*is_).imag
+        copper=(self.stator_copper_coefficient*abs(is_)**2+
+                self.rotor_copper_coefficient*abs(ir)**2)
         return Rate(v-p.stator_resistance*is_ if connected else 0j,
                     -p.rotor_resistance*ir+1j*p.pole_pairs*omega*pr if connected else 0j,
-                    dv,torque,is_,pm,external,loss,copper,1.5*abs(v)**2*self.gc if connected else 0,
+                    dv,torque,is_,pm,external,loss,copper,
+                    self.core_coefficient*abs(v)**2 if connected else 0,
                     pac,vdc*idc,bridge_loss,ie,limited,v,
                     solver_status,iterations,residual,precharge_loss)
 
@@ -345,7 +396,12 @@ class ExternalLoweringModel(MechanicalModel):
         self.charger_enabled=True
         self.controls=ControlInputs()
         self.switchgear=SwitchgearState()
+        # The 0.1 ms production limit is retained: simulation.timestep_study found
+        # that 0.2 ms was accurate in sampled electrical traces but advanced
+        # the position-triggered automatic profile enough to fail its 3.4 s
+        # behavioral checkpoint.
         self.max_electrical_step=0.0001
+        self.integrator_order=4
         self.kernel=Kernel(self.parameters)
         self.reset()
 
@@ -700,9 +756,12 @@ class ExternalLoweringModel(MechanicalModel):
               vf_flux,vf_voltage)
         a=k.rate(y,phase,*args)
         b=k.rate(tuple(y[i]+h*a[i]/2 for i in range(3)),phase+w*h/2,*args)
-        c=k.rate(tuple(y[i]+h*b[i]/2 for i in range(3)),phase+w*h/2,*args)
-        d=k.rate(tuple(y[i]+h*c[i] for i in range(3)),phase+w*h,*args)
-        average=lambda index:(a[index]+2*b[index]+2*c[index]+d[index])/6
+        if self.integrator_order==2:
+            average=lambda index:b[index]
+        else:
+            c=k.rate(tuple(y[i]+h*b[i]/2 for i in range(3)),phase+w*h/2,*args)
+            d=k.rate(tuple(y[i]+h*c[i] for i in range(3)),phase+w*h,*args)
+            average=lambda index:(a[index]+2*b[index]+2*c[index]+d[index])/6
         dc_heat=duty*vdc*vdc/p.dc_brake_resistance
         try:
             aux_link=auxiliary_step(e.aux_capacitance,e.aux_energy,h,boost_i,average(6))

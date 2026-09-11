@@ -34,4 +34,4 @@ Observed maxima: 1.134 Wb-turn flux and 2.167 A RMS current.
 Conclusion: the frequency-derived target removes the previous 500 V power-path blockage: the bridge continues exporting real power and the resistor absorbs it below 500 V. It does not establish the requested low electrical frequencies. The load remains near the higher machine/load/resistor equilibrium and actual frequency is set mainly by rotor motion, not by the scalar command. The reverse-blocking small exciter is at its physical limit: it supplies reactive excitation but cannot absorb generator real power to force the commanded rotating field. From 15 Hz downward the chopper is also at full duty, so lowering its voltage target cannot increase braking torque; the configured resistor and available generator voltage set the maximum absorption. The failure is therefore exciter plus duty/resistor braking-authority saturation, not capacitor charging or forced machine copper loss.
 
 - Final state: `STOPPED`; fault: `NONE`
-- Final energy residual: +0.00017948 J
+- Final energy residual: +0.00017947 J

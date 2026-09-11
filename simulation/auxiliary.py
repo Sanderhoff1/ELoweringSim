@@ -46,22 +46,22 @@ def auxiliary_step(capacitance, energy, h, source_current, load_power):
     if energy < 0 or capacitance <= 0 or h <= 0:
         raise ValueError('Auxiliary-link energy, capacitance and step must be positive')
     v0=math.sqrt(2*energy/capacitance)
-    upper=v0+h*max(0.0,source_current)/capacitance
     def balance(v1):
         vm=(v0+v1)/2
         return .5*capacitance*(v1*v1-v0*v0)-h*(source_current*vm-load_power)
     if balance(0.0)>1e-12:
         raise ValueError('Auxiliary DC link cannot supply the requested inverter energy')
-    lo,hi=0.0,max(upper,v0,1e-12)
-    while balance(hi)<0:
-        hi=max(1.0,2*hi)
-        if hi>1e6:
-            raise ValueError('Auxiliary-link solve did not bracket a finite voltage')
-    for _ in range(70):
-        mid=(lo+hi)/2
-        if balance(mid)>0: hi=mid
-        else: lo=mid
-    v1=(lo+hi)/2
+    # The midpoint energy equation is exactly quadratic in v1:
+    # C v1^2 - h Is v1 - C v0^2 - h Is v0 + 2 h Pload = 0.
+    # The old 70-step bisection converged to this nonnegative root.
+    drive=h*source_current
+    discriminant=drive*drive+4*capacitance*(
+        capacitance*v0*v0+drive*v0-2*h*load_power)
+    if discriminant < -1e-18:
+        raise ValueError('Auxiliary-link solve has no finite real voltage')
+    v1=(drive+math.sqrt(max(0.0,discriminant)))/(2*capacitance)
+    if not math.isfinite(v1) or v1>1e6:
+        raise ValueError('Auxiliary-link solve did not bracket a finite voltage')
     vm=(v0+v1)/2
     output_power=source_current*vm
     next_energy=.5*capacitance*v1*v1

@@ -1,0 +1,594 @@
+[
+  {
+    "mode": "canonical-exciter",
+    "maximum_step_s": 5e-05,
+    "simulated_seconds": 4.0,
+    "wall_seconds": 54.54585220001172,
+    "real_time_factor": 0.0733327987127707,
+    "rejected_steps": 1491,
+    "peaks": {
+      "velocity": 0.21092401827545051,
+      "rpm": 1208.5056045123558,
+      "bus_frequency": 38.77635119501134,
+      "line_voltage": 318.6731243181392,
+      "machine_line_current": 2.1643245119555723,
+      "flux_magnitude": 1.1332409877876803,
+      "motor_torque": 6.158836423381477,
+      "dc_voltage": 428.10926835005705,
+      "dc_brake_power": 413.2315218066487
+    },
+    "final": {
+      "velocity": 0.20674983987551157,
+      "rpm": 1184.5893239872385,
+      "bus_frequency": 37.84550547437596,
+      "line_voltage": 297.95599416075316,
+      "machine_line_current": 1.7513442872666685,
+      "flux_magnitude": 1.0076600503840607,
+      "motor_torque": -4.238794939603213,
+      "dc_voltage": 397.92389141127353,
+      "dc_brake_power": 407.2817052195201
+    },
+    "events": [
+      [
+        "EXCITATION_BUILD",
+        0.4179999999999621
+      ],
+      [
+        "READY_TO_RELEASE",
+        0.7499999999999256
+      ],
+      [
+        "BRAKE_RELEASE",
+        0.7999999999999201
+      ],
+      [
+        "LOWERING",
+        1.8040000000012637
+      ],
+      [
+        "SLOWDOWN_1",
+        3.3999999999984145
+      ]
+    ],
+    "energy_residual": 2.1017414582047422e-05,
+    "fault": "",
+    "difference_from_0_1ms": {
+      "peak_relative": {
+        "velocity": 2.07105026832618e-05,
+        "rpm": 2.0710502683152255e-05,
+        "bus_frequency": 1.4871639503672787e-05,
+        "line_voltage": 9.616257721500502e-06,
+        "machine_line_current": 4.05710637491101e-07,
+        "flux_magnitude": 1.9745602168527195e-05,
+        "motor_torque": 5.257916717170388e-07,
+        "dc_voltage": 2.7828954095307337e-06,
+        "dc_brake_power": 3.140681746906233e-05
+      },
+      "final_relative": {
+        "velocity": 1.5301040340981452e-05,
+        "rpm": 1.5301040341079196e-05,
+        "bus_frequency": 2.1518673721009827e-05,
+        "line_voltage": 4.1279794067838375e-07,
+        "machine_line_current": 8.96033202303104e-06,
+        "flux_magnitude": 1.4157926622140789e-05,
+        "motor_torque": 1.2883959237717704e-06,
+        "dc_voltage": 1.3089389121610686e-06,
+        "dc_brake_power": 2.0716467160028136e-05
+      },
+      "maximum_event_shift_s": 4.7051251783614134e-12,
+      "energy_residual_change": 1.986335291803698e-07
+    }
+  },
+  {
+    "mode": "canonical-exciter",
+    "maximum_step_s": 0.0001,
+    "simulated_seconds": 3.9999999999999982,
+    "wall_seconds": 34.05866020001122,
+    "real_time_factor": 0.1174444319450558,
+    "rejected_steps": 4705,
+    "peaks": {
+      "velocity": 0.21092838670836941,
+      "rpm": 1208.5306337892896,
+      "bus_frequency": 38.7769278715037,
+      "line_voltage": 318.670059904715,
+      "machine_line_current": 2.164325390045406,
+      "flux_magnitude": 1.1332186117038037,
+      "motor_torque": 6.158839661648079,
+      "dc_voltage": 428.10807697005487,
+      "dc_brake_power": 413.244500501246
+    },
+    "final": {
+      "velocity": 0.2067530034115574,
+      "rpm": 1184.6074497136149,
+      "bus_frequency": 37.846319876984936,
+      "line_voltage": 297.95611715642474,
+      "machine_line_current": 1.7513285947809778,
+      "flux_magnitude": 1.0076457842089868,
+      "motor_torque": -4.2388004008563716,
+      "dc_voltage": 397.92337055388975,
+      "dc_brake_power": 407.2901428323887
+    },
+    "events": [
+      [
+        "EXCITATION_BUILD",
+        0.4179999999999703
+      ],
+      [
+        "READY_TO_RELEASE",
+        0.7499999999999337
+      ],
+      [
+        "BRAKE_RELEASE",
+        0.7999999999999282
+      ],
+      [
+        "LOWERING",
+        1.8040000000001866
+      ],
+      [
+        "SLOWDOWN_1",
+        3.4000000000031196
+      ]
+    ],
+    "energy_residual": 2.0818781052867052e-05,
+    "fault": "",
+    "difference_from_0_1ms": {
+      "peak_relative": {
+        "velocity": 0.0,
+        "rpm": 0.0,
+        "bus_frequency": 0.0,
+        "line_voltage": 0.0,
+        "machine_line_current": 0.0,
+        "flux_magnitude": 0.0,
+        "motor_torque": 0.0,
+        "dc_voltage": 0.0,
+        "dc_brake_power": 0.0
+      },
+      "final_relative": {
+        "velocity": 0.0,
+        "rpm": 0.0,
+        "bus_frequency": 0.0,
+        "line_voltage": 0.0,
+        "machine_line_current": 0.0,
+        "flux_magnitude": 0.0,
+        "motor_torque": 0.0,
+        "dc_voltage": 0.0,
+        "dc_brake_power": 0.0
+      },
+      "maximum_event_shift_s": 0.0,
+      "energy_residual_change": 0.0
+    }
+  },
+  {
+    "mode": "canonical-exciter",
+    "maximum_step_s": 0.0002,
+    "simulated_seconds": 3.9999999999999645,
+    "wall_seconds": 23.594224000000395,
+    "real_time_factor": 0.16953301791149805,
+    "rejected_steps": 6355,
+    "peaks": {
+      "velocity": 0.21093261664494442,
+      "rpm": 1208.5548695406253,
+      "bus_frequency": 38.77769702847603,
+      "line_voltage": 318.6710192487414,
+      "machine_line_current": 2.1643287777937656,
+      "flux_magnitude": 1.13320148105232,
+      "motor_torque": 6.158852530249,
+      "dc_voltage": 428.1089596159096,
+      "dc_brake_power": 413.256258736367
+    },
+    "final": {
+      "velocity": 0.20675584243253786,
+      "rpm": 1184.6237161056279,
+      "bus_frequency": 37.84679779746755,
+      "line_voltage": 297.9551669830228,
+      "machine_line_current": 1.7513115298174748,
+      "flux_magnitude": 1.0076308020908553,
+      "motor_torque": -4.238808226512676,
+      "dc_voltage": 397.9216716013677,
+      "dc_brake_power": 407.29779758931124
+    },
+    "events": [
+      [
+        "EXCITATION_BUILD",
+        0.4179999999999866
+      ],
+      [
+        "READY_TO_RELEASE",
+        0.74999999999995
+      ],
+      [
+        "BRAKE_RELEASE",
+        0.7999999999999445
+      ],
+      [
+        "LOWERING",
+        1.8040000000002063
+      ],
+      [
+        "SLOWDOWN_1",
+        3.4000000000000306
+      ]
+    ],
+    "energy_residual": 2.3720487831724313e-06,
+    "fault": "",
+    "difference_from_0_1ms": {
+      "peak_relative": {
+        "velocity": 2.005389905558234e-05,
+        "rpm": 2.005389905568151e-05,
+        "bus_frequency": 1.9835428295756563e-05,
+        "line_voltage": 3.0104617505807226e-06,
+        "machine_line_current": 1.5652675772318997e-06,
+        "flux_magnitude": 1.511681091948318e-05,
+        "motor_torque": 2.0894521740844043e-06,
+        "dc_voltage": 2.0617360480362128e-06,
+        "dc_brake_power": 2.8453458198966162e-05
+      },
+      "final_relative": {
+        "velocity": 1.3731461858479297e-05,
+        "rpm": 1.3731461858463652e-05,
+        "bus_frequency": 1.2627924833110242e-05,
+        "line_voltage": 3.1889709497701976e-06,
+        "machine_line_current": 9.744010092571646e-06,
+        "flux_magnitude": 1.486843726856548e-05,
+        "motor_torque": 1.8461959904326965e-06,
+        "dc_voltage": 4.269546972603459e-06,
+        "dc_brake_power": 1.8794358413147702e-05
+      },
+      "maximum_event_shift_s": 3.0890845437170356e-12,
+      "energy_residual_change": -1.844673226969462e-05
+    }
+  },
+  {
+    "mode": "canonical-exciter",
+    "maximum_step_s": 0.0004,
+    "simulated_seconds": 3.99999999999999,
+    "wall_seconds": 18.293266399996355,
+    "real_time_factor": 0.21865969218054937,
+    "rejected_steps": 7162,
+    "peaks": {
+      "velocity": 0.21100227366126106,
+      "rpm": 1208.9539748454672,
+      "bus_frequency": 38.79011230319528,
+      "line_voltage": 318.6908133047385,
+      "machine_line_current": 2.1643420342943123,
+      "flux_magnitude": 1.1327239253251018,
+      "motor_torque": 6.158903685302869,
+      "dc_voltage": 428.1215197349061,
+      "dc_brake_power": 413.43598620231194
+    },
+    "final": {
+      "velocity": 0.206775242654855,
+      "rpm": 1184.7348711916666,
+      "bus_frequency": 37.848866949676186,
+      "line_voltage": 297.8169075580384,
+      "machine_line_current": 1.7507960269314014,
+      "flux_magnitude": 1.0071538094136994,
+      "motor_torque": -4.239063612791682,
+      "dc_voltage": 397.7180661914904,
+      "dc_brake_power": 407.37937747928805
+    },
+    "events": [
+      [
+        "EXCITATION_BUILD",
+        0.41800000000000787
+      ],
+      [
+        "READY_TO_RELEASE",
+        0.7499999999999827
+      ],
+      [
+        "BRAKE_RELEASE",
+        0.7999999999999772
+      ],
+      [
+        "LOWERING",
+        1.8000000000002319
+      ],
+      [
+        "SLOWDOWN_1",
+        3.3960000000000563
+      ]
+    ],
+    "energy_residual": -4.972789730572913e-05,
+    "fault": "",
+    "difference_from_0_1ms": {
+      "peak_relative": {
+        "velocity": 0.00035029402179900115,
+        "rpm": 0.0003502940217992157,
+        "bus_frequency": 0.00034000712318590877,
+        "line_voltage": 6.51250388245705e-05,
+        "machine_line_current": 7.690271057574145e-06,
+        "flux_magnitude": 0.0004365321691620512,
+        "motor_torque": 1.0395408600888665e-05,
+        "dc_voltage": 3.140039997927995e-05,
+        "dc_brake_power": 0.00046337144434747875
+      },
+      "final_relative": {
+        "velocity": 0.0001075643058656934,
+        "rpm": 0.00010756430586563183,
+        "bus_frequency": 6.73004059451268e-05,
+        "line_voltage": 0.00046721510440834535,
+        "machine_line_current": 0.000304093618503986,
+        "flux_magnitude": 0.00048824180381363213,
+        "motor_torque": 6.209585505780351e-05,
+        "dc_voltage": 0.0005159394436009146,
+        "dc_brake_power": 0.00021909355890320406
+      },
+      "maximum_event_shift_s": 0.004000000003063331,
+      "energy_residual_change": -7.054667835859618e-05
+    }
+  },
+  {
+    "mode": "capacitor-only",
+    "maximum_step_s": 2e-05,
+    "simulated_seconds": 2.0,
+    "wall_seconds": 16.226421500003198,
+    "real_time_factor": 0.12325576529610092,
+    "rejected_steps": 0,
+    "peaks": {
+      "velocity": 0.9945084431173511,
+      "rpm": 5698.113648075052,
+      "bus_frequency": 166.7411121958322,
+      "line_voltage": 4786.866023740379,
+      "machine_line_current": 39.21397895015302,
+      "flux_magnitude": 3.913777424893795,
+      "motor_torque": 109.35881719929486,
+      "dc_voltage": 359.513591655547,
+      "dc_brake_power": 0.0
+    },
+    "final": {
+      "velocity": 0.3206548983521706,
+      "rpm": 1837.217235577579,
+      "bus_frequency": 61.05854281800964,
+      "line_voltage": 961.1063966596523,
+      "machine_line_current": 3.8322672093795798,
+      "flux_magnitude": 1.9153323843386834,
+      "motor_torque": -2.0147548270321343,
+      "dc_voltage": 359.513591655547,
+      "dc_brake_power": 0.0
+    },
+    "events": [
+      [
+        "LOWERING",
+        1.0040000000007003
+      ],
+      [
+        "FAULT",
+        1.7919999999971141
+      ]
+    ],
+    "energy_residual": 2.0463797909542336e-06,
+    "fault": "RUNAWAY DIAGNOSTIC",
+    "difference_from_0_1ms": {
+      "peak_relative": {
+        "velocity": 0.0007708915750592515,
+        "rpm": 0.000770891575059294,
+        "bus_frequency": 0.09230590593017601,
+        "line_voltage": 0.014534433028212968,
+        "machine_line_current": 0.06428565278634674,
+        "flux_magnitude": 0.004381234031441505,
+        "motor_torque": 0.2635807329760928,
+        "dc_voltage": 0.0002967870909508895,
+        "dc_brake_power": 0.0
+      },
+      "final_relative": {
+        "velocity": 0.0208544116516044,
+        "rpm": 0.020854411651604447,
+        "bus_frequency": 0.020610753153504736,
+        "line_voltage": 0.05158272996600571,
+        "machine_line_current": 0.07323778539944772,
+        "flux_magnitude": 0.027527857362593246,
+        "motor_torque": 0.14614118258707037,
+        "dc_voltage": 0.0002967870909508895,
+        "dc_brake_power": 0.0
+      },
+      "maximum_event_shift_s": 3.461231301571388e-12,
+      "energy_residual_change": -0.00015471683764189947
+    }
+  },
+  {
+    "mode": "capacitor-only",
+    "maximum_step_s": 5e-05,
+    "simulated_seconds": 2.000000000000004,
+    "wall_seconds": 8.076483699987875,
+    "real_time_factor": 0.24763251859259078,
+    "rejected_steps": 2091,
+    "peaks": {
+      "velocity": 0.9937423754923047,
+      "rpm": 5693.724403901375,
+      "bus_frequency": 152.65056362927956,
+      "line_voltage": 4857.466545939116,
+      "machine_line_current": 41.90806635264643,
+      "flux_magnitude": 3.8967050481264534,
+      "motor_torque": 148.50075506748607,
+      "dc_voltage": 359.40692432001043,
+      "dc_brake_power": 0.0
+    },
+    "final": {
+      "velocity": 0.3141044351597544,
+      "rpm": 1799.685846099455,
+      "bus_frequency": 59.8254943222474,
+      "line_voltage": 913.9617542889106,
+      "machine_line_current": 3.5707531560242733,
+      "flux_magnitude": 1.8640199101315482,
+      "motor_torque": -1.757859204120411,
+      "dc_voltage": 359.40692432001043,
+      "dc_brake_power": 0.0
+    },
+    "events": [
+      [
+        "LOWERING",
+        1.0039999999996487
+      ],
+      [
+        "FAULT",
+        1.7920000000005754
+      ]
+    ],
+    "energy_residual": 0.0001567632174328537,
+    "fault": "RUNAWAY DIAGNOSTIC",
+    "difference_from_0_1ms": {
+      "peak_relative": {
+        "velocity": 0.0,
+        "rpm": 0.0,
+        "bus_frequency": 0.0,
+        "line_voltage": 0.0,
+        "machine_line_current": 0.0,
+        "flux_magnitude": 0.0,
+        "motor_torque": 0.0,
+        "dc_voltage": 0.0,
+        "dc_brake_power": 0.0
+      },
+      "final_relative": {
+        "velocity": 0.0,
+        "rpm": 0.0,
+        "bus_frequency": 0.0,
+        "line_voltage": 0.0,
+        "machine_line_current": 0.0,
+        "flux_magnitude": 0.0,
+        "motor_torque": 0.0,
+        "dc_voltage": 0.0,
+        "dc_brake_power": 0.0
+      },
+      "maximum_event_shift_s": 0.0,
+      "energy_residual_change": 0.0
+    }
+  },
+  {
+    "mode": "capacitor-only",
+    "maximum_step_s": 0.0001,
+    "simulated_seconds": 2.000000000000004,
+    "wall_seconds": 8.012809100007871,
+    "real_time_factor": 0.24960035551053367,
+    "rejected_steps": 2091,
+    "peaks": {
+      "velocity": 0.9937423754923047,
+      "rpm": 5693.724403901375,
+      "bus_frequency": 152.65056362927956,
+      "line_voltage": 4857.466545939116,
+      "machine_line_current": 41.90806635264643,
+      "flux_magnitude": 3.8967050481264534,
+      "motor_torque": 148.50075506748607,
+      "dc_voltage": 359.40692432001043,
+      "dc_brake_power": 0.0
+    },
+    "final": {
+      "velocity": 0.3141044351597544,
+      "rpm": 1799.685846099455,
+      "bus_frequency": 59.8254943222474,
+      "line_voltage": 913.9617542889106,
+      "machine_line_current": 3.5707531560242733,
+      "flux_magnitude": 1.8640199101315482,
+      "motor_torque": -1.757859204120411,
+      "dc_voltage": 359.40692432001043,
+      "dc_brake_power": 0.0
+    },
+    "events": [
+      [
+        "LOWERING",
+        1.0039999999996487
+      ],
+      [
+        "FAULT",
+        1.7920000000005754
+      ]
+    ],
+    "energy_residual": 0.0001567632174328537,
+    "fault": "RUNAWAY DIAGNOSTIC",
+    "difference_from_0_1ms": {
+      "peak_relative": {
+        "velocity": 0.0,
+        "rpm": 0.0,
+        "bus_frequency": 0.0,
+        "line_voltage": 0.0,
+        "machine_line_current": 0.0,
+        "flux_magnitude": 0.0,
+        "motor_torque": 0.0,
+        "dc_voltage": 0.0,
+        "dc_brake_power": 0.0
+      },
+      "final_relative": {
+        "velocity": 0.0,
+        "rpm": 0.0,
+        "bus_frequency": 0.0,
+        "line_voltage": 0.0,
+        "machine_line_current": 0.0,
+        "flux_magnitude": 0.0,
+        "motor_torque": 0.0,
+        "dc_voltage": 0.0,
+        "dc_brake_power": 0.0
+      },
+      "maximum_event_shift_s": 0.0,
+      "energy_residual_change": 0.0
+    }
+  },
+  {
+    "mode": "capacitor-only",
+    "maximum_step_s": 0.0002,
+    "simulated_seconds": 2.000000000000004,
+    "wall_seconds": 8.10124160000123,
+    "real_time_factor": 0.24687573815842007,
+    "rejected_steps": 2091,
+    "peaks": {
+      "velocity": 0.9937423754923047,
+      "rpm": 5693.724403901375,
+      "bus_frequency": 152.65056362927956,
+      "line_voltage": 4857.466545939116,
+      "machine_line_current": 41.90806635264643,
+      "flux_magnitude": 3.8967050481264534,
+      "motor_torque": 148.50075506748607,
+      "dc_voltage": 359.40692432001043,
+      "dc_brake_power": 0.0
+    },
+    "final": {
+      "velocity": 0.3141044351597544,
+      "rpm": 1799.685846099455,
+      "bus_frequency": 59.8254943222474,
+      "line_voltage": 913.9617542889106,
+      "machine_line_current": 3.5707531560242733,
+      "flux_magnitude": 1.8640199101315482,
+      "motor_torque": -1.757859204120411,
+      "dc_voltage": 359.40692432001043,
+      "dc_brake_power": 0.0
+    },
+    "events": [
+      [
+        "LOWERING",
+        1.0039999999996487
+      ],
+      [
+        "FAULT",
+        1.7920000000005754
+      ]
+    ],
+    "energy_residual": 0.0001567632174328537,
+    "fault": "RUNAWAY DIAGNOSTIC",
+    "difference_from_0_1ms": {
+      "peak_relative": {
+        "velocity": 0.0,
+        "rpm": 0.0,
+        "bus_frequency": 0.0,
+        "line_voltage": 0.0,
+        "machine_line_current": 0.0,
+        "flux_magnitude": 0.0,
+        "motor_torque": 0.0,
+        "dc_voltage": 0.0,
+        "dc_brake_power": 0.0
+      },
+      "final_relative": {
+        "velocity": 0.0,
+        "rpm": 0.0,
+        "bus_frequency": 0.0,
+        "line_voltage": 0.0,
+        "machine_line_current": 0.0,
+        "flux_magnitude": 0.0,
+        "motor_torque": 0.0,
+        "dc_voltage": 0.0,
+        "dc_brake_power": 0.0
+      },
+      "maximum_event_shift_s": 0.0,
+      "energy_residual_change": 0.0
+    }
+  }
+]

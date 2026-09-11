@@ -1,0 +1,47 @@
+[
+  {
+    "case": "fixed-exciter-20hz",
+    "simulated_seconds": 10.0,
+    "wall_seconds": 91.71989520001807,
+    "real_time_factor": 0.10902759949945985,
+    "outer_integration_steps": 5001,
+    "electrical_substep_calls": 115009,
+    "derivative_evaluations": 572374,
+    "algebraic_solves": 555874,
+    "average_solver_iterations": 3.7865271626303802,
+    "maximum_solver_iterations": 15,
+    "telemetry_frames": 1001,
+    "integration_wall_seconds": 90.8933917004615,
+    "counts": {
+      "machine_currents": 939411,
+      "rectifier": 4535520,
+      "kernel_rate": 572374,
+      "chopper_controller": 117011,
+      "energy_diagnostics": 1001,
+      "readings": 1001,
+      "replay_frame": 1001,
+      "scalar_controller": 5001,
+      "state_controller": 5001,
+      "dc_link": 115009,
+      "electrical_substep": 115009,
+      "ac_bus_solver": 555874
+    },
+    "subsystem_seconds": {
+      "machine_currents": 4.13321089479723,
+      "rectifier": 8.16098479309585,
+      "kernel_rate": 73.4608311970951,
+      "chopper_controller": 0.2745362991990987,
+      "energy_diagnostics": 0.1877822003152687,
+      "readings": 0.8066861007828265,
+      "replay_frame": 0.00813339973683469,
+      "scalar_controller": 0.05983789992751554,
+      "state_controller": 0.22992799975327216,
+      "dc_link": 1.1538757977250498,
+      "electrical_substep": 118.0216558034299,
+      "ac_bus_solver": 58.14026530410047
+    },
+    "final_energy_residual": 1.727716028199211e-05,
+    "final_state": "LOWERING",
+    "fault": ""
+  }
+]

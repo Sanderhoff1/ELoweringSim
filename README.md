@@ -55,13 +55,17 @@ capacity, boost limits and charger limits.
 - [Canonical capacitor-only natural operating point](docs/automatic-sequence-capacitor.md)
 - [300 kg startup sequence, sizing peaks and plot](docs/architecture-demo.md)
 - [Component tables at startup, acceleration and steady lowering](docs/power-balance-results.md)
+- [Simulation performance benchmark and optimization report](docs/performance/optimization-report.md)
 - [Energy Flow preview](energy-preview.png) and [capacitor preview](docs/capacitor-preview.png)
 - [Full test output](docs/test-results.txt)
 
 Regenerate tables with `python -m simulation.power_review`, the startup report
 with `python -m simulation.architecture_demo`, and previews with
 `python -m simulation.preview_energy`. Regenerate the canonical scalar V/f and
-capacitor-only traces with `python -m simulation.automatic_sequence`. The previews
+capacitor-only traces with `python -m simulation.automatic_sequence`.
+Performance histories can be regenerated with
+`python -m simulation.performance_benchmark LABEL`; compare `baseline` and
+`final` with `python -m simulation.performance_report`. The previews
 render the actual Tk canvas geometry at the normal window size, with the
 sidebar's space reserved, and work without an unlocked desktop. If a sandboxed
 Python exposes `_tkinter` but hides its Tcl/Tk scripts, preview generation stages

@@ -2,11 +2,11 @@
   "exciter": {
     "final_state": "STOPPED",
     "fault": "",
-    "energy_residual": 0.00017948109632470732
+    "energy_residual": 0.00017946523405498738
   },
   "capacitor": {
     "final_state": "FAULT",
     "fault": "RUNAWAY DIAGNOSTIC",
-    "energy_residual": 0.0001567260796946357
+    "energy_residual": 0.00015672623555929022
   }
 }
